@@ -1,0 +1,297 @@
+body {
+  background: linear-gradient(180deg, #101112 0%, #080909 58%, #11100d 100%);
+  font-family: ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans SC", Arial, sans-serif;
+}
+
+body:before {
+  background-image:
+    linear-gradient(rgba(246, 245, 240, .028) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(246, 245, 240, .028) 1px, transparent 1px);
+  opacity: .7;
+}
+
+h1, h2, h3, .hero h1, .section-head h2 {
+  letter-spacing: 0;
+}
+
+main {
+  width: min(1240px, calc(100% - 36px));
+}
+
+.panel, .glass, .step, .chart-card, .variant-card, .explain-card,
+.wiring-card, .primer-summary article, .g02-step, .reader-guide-grid article,
+.story-grid article, .arch-explain-grid article, .insight-grid article,
+.table-shell, .callout-wide {
+  border-radius: 8px;
+}
+
+.panel, .glass {
+  background: linear-gradient(145deg, rgba(255, 255, 255, .095), rgba(255, 255, 255, .045));
+  border-color: rgba(245, 245, 240, .14);
+}
+
+.report-hero {
+  grid-template-columns: minmax(0, 1fr) minmax(360px, .78fr);
+  min-height: 560px;
+  border-radius: 14px;
+  background:
+    linear-gradient(135deg, rgba(245, 158, 11, .13), transparent 34%),
+    linear-gradient(160deg, rgba(20, 184, 166, .12), transparent 58%),
+    rgba(255, 255, 255, .055);
+}
+
+.report-hero:after {
+  display: none;
+}
+
+.hero h1 {
+  max-width: 860px;
+  font-size: 66px;
+  line-height: 1.02;
+}
+
+.hero p {
+  max-width: 760px;
+  color: #e8ecec;
+}
+
+.report-map {
+  display: grid;
+  gap: 12px;
+  align-self: stretch;
+}
+
+.map-row {
+  display: grid;
+  grid-template-columns: 92px minmax(0, 1fr);
+  gap: 14px;
+  align-items: start;
+  min-height: 122px;
+  padding: 16px;
+  border: 1px solid rgba(255, 255, 255, .16);
+  border-left: 4px solid var(--chapter, #14b8a6);
+  border-radius: 8px;
+  background: rgba(10, 11, 11, .48);
+}
+
+.map-row:nth-child(1) { --chapter: #f59e0b; }
+.map-row:nth-child(2) { --chapter: #14b8a6; }
+.map-row:nth-child(3) { --chapter: #ec4899; }
+
+.map-row span {
+  color: var(--chapter);
+  font-weight: 950;
+  font-size: 13px;
+  text-transform: uppercase;
+}
+
+.map-row strong {
+  display: block;
+  margin-bottom: 6px;
+  color: #fffdf5;
+  font-size: 19px;
+}
+
+.map-row small {
+  color: #b8bec0;
+  line-height: 1.55;
+}
+
+.section-head span {
+  width: auto;
+  min-width: 42px;
+  height: auto;
+  min-height: 42px;
+  padding: 9px 12px;
+  border-radius: 8px;
+  color: #f8fbff;
+  background: rgba(255, 255, 255, .09);
+}
+
+.section-head h2 {
+  font-size: 36px;
+}
+
+.chapter-break {
+  --chapter: #14b8a6;
+  margin: 78px 0 16px;
+  padding: 24px 28px;
+  border-top: 1px solid rgba(255, 255, 255, .14);
+  border-bottom: 1px solid rgba(255, 255, 255, .14);
+  border-left: 6px solid var(--chapter);
+  background: linear-gradient(90deg, color-mix(in srgb, var(--chapter), transparent 86%), rgba(255, 255, 255, .028));
+}
+
+.chapter-break span {
+  display: inline-flex;
+  margin-bottom: 8px;
+  color: var(--chapter);
+  font-size: 13px;
+  font-weight: 950;
+  text-transform: uppercase;
+}
+
+.chapter-break h2 {
+  margin: 0;
+  color: #fffdf5;
+  font-size: 38px;
+  line-height: 1.15;
+  letter-spacing: 0;
+}
+
+.chapter-break p {
+  max-width: 900px;
+  margin: 10px 0 0;
+  color: #c9ced0;
+}
+
+.chapter-one, .chapter-one-panel { --chapter: #f59e0b; }
+.chapter-two, .chapter-two-panel { --chapter: #14b8a6; }
+.chapter-three, .chapter-three-panel { --chapter: #ec4899; }
+
+.chapter-panel {
+  border-top: 4px solid var(--chapter);
+}
+
+.chapter-panel .section-head span {
+  background: color-mix(in srgb, var(--chapter), transparent 80%);
+  color: #fffdf5;
+  border: 1px solid color-mix(in srgb, var(--chapter), white 18%);
+}
+
+.chapter-grid, .implementation-ledger, .contract-strip,
+.detail-grid, .evidence-grid {
+  display: grid;
+  gap: 14px;
+  margin: 18px 0;
+}
+
+.chapter-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.contract-strip, .evidence-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.implementation-ledger {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.detail-grid, .detail-grid.two {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.detail-grid.three {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.chapter-grid article, .implementation-ledger article, .contract-strip article,
+.implementation-ledger > div, .detail-card, .evidence-grid article {
+  border: 1px solid rgba(255, 255, 255, .14);
+  border-radius: 8px;
+  padding: 18px;
+  background: rgba(255, 255, 255, .05);
+}
+
+.chapter-grid span, .implementation-ledger span, .contract-strip span,
+.detail-card span, .evidence-grid span {
+  display: inline-flex;
+  margin-bottom: 9px;
+  padding: 4px 9px;
+  border: 1px solid rgba(255, 255, 255, .16);
+  border-radius: 999px;
+  color: #d7dee0;
+  font-size: 12px;
+  font-weight: 950;
+}
+
+.chapter-grid b, .implementation-ledger b, .contract-strip b,
+.detail-card h3, .evidence-grid b {
+  display: block;
+  margin: 0 0 8px;
+  color: #fffdf5;
+}
+
+.chapter-grid p, .implementation-ledger p, .contract-strip p,
+.detail-card p, .evidence-grid li {
+  color: #bfc6c8;
+}
+
+.compact-list {
+  margin: 0;
+  padding-left: 18px;
+}
+
+.compact-list li {
+  margin: 8px 0;
+  color: #cbd2d4;
+}
+
+.full-results {
+  margin-top: 18px;
+}
+
+.full-results summary {
+  cursor: pointer;
+  width: max-content;
+  max-width: 100%;
+  padding: 10px 13px;
+  border: 1px solid rgba(255, 255, 255, .16);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, .06);
+  color: #fffdf5;
+  font-weight: 900;
+}
+
+.full-results .table-shell {
+  margin-top: 12px;
+}
+
+.formula-block {
+  border-radius: 8px;
+}
+
+.arch-stage {
+  border-radius: 12px;
+}
+
+.arch-arrow, .arch-down-arrow {
+  text-shadow: none;
+}
+
+.topbar {
+  border-radius: 8px;
+}
+
+.topbar a {
+  border-radius: 6px;
+}
+
+@media (max-width: 980px) {
+  main {
+    width: min(100% - 24px, 760px);
+  }
+
+  .report-hero, .chapter-grid, .implementation-ledger, .contract-strip,
+  .detail-grid, .detail-grid.two, .detail-grid.three, .evidence-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .hero h1 {
+    font-size: 42px;
+  }
+
+  .section-head {
+    align-items: flex-start;
+  }
+
+  .section-head h2, .chapter-break h2 {
+    font-size: 28px;
+  }
+
+  .map-row {
+    grid-template-columns: 1fr;
+    min-height: 0;
+  }
+}
