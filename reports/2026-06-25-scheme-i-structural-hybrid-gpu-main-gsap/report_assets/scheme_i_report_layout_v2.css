@@ -160,7 +160,7 @@ main {
 }
 
 .chapter-grid, .implementation-ledger, .contract-strip,
-.detail-grid, .evidence-grid {
+.detail-grid, .evidence-grid, .trace-grid {
   display: grid;
   gap: 14px;
   margin: 18px 0;
@@ -178,16 +178,17 @@ main {
   grid-template-columns: repeat(3, minmax(0, 1fr));
 }
 
-.detail-grid, .detail-grid.two {
+.detail-grid, .detail-grid.two, .trace-grid {
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
-.detail-grid.three {
+.detail-grid.three, .trace-grid.three {
   grid-template-columns: repeat(3, minmax(0, 1fr));
 }
 
 .chapter-grid article, .implementation-ledger article, .contract-strip article,
-.implementation-ledger > div, .detail-card, .evidence-grid article {
+.implementation-ledger > div, .detail-card, .evidence-grid article,
+.trace-grid article {
   border: 1px solid rgba(255, 255, 255, .14);
   border-radius: 8px;
   padding: 18px;
@@ -195,7 +196,8 @@ main {
 }
 
 .chapter-grid span, .implementation-ledger span, .contract-strip span,
-.detail-card span, .evidence-grid span {
+.detail-card span, .evidence-grid span, .trace-grid span,
+.mechanism-copy span, .mechanism-flow span {
   display: inline-flex;
   margin-bottom: 9px;
   padding: 4px 9px;
@@ -207,15 +209,129 @@ main {
 }
 
 .chapter-grid b, .implementation-ledger b, .contract-strip b,
-.detail-card h3, .evidence-grid b {
+.detail-card h3, .evidence-grid b, .trace-grid h3,
+.mechanism-copy h3 {
   display: block;
   margin: 0 0 8px;
   color: #fffdf5;
 }
 
 .chapter-grid p, .implementation-ledger p, .contract-strip p,
-.detail-card p, .evidence-grid li {
+.detail-card p, .evidence-grid li, .trace-grid p,
+.mechanism-copy p {
   color: #bfc6c8;
+}
+
+.mechanism-primer {
+  display: grid;
+  grid-template-columns: minmax(0, 1.05fr) minmax(360px, .95fr);
+  gap: 16px;
+  margin: 20px 0;
+  padding: 20px;
+  border: 1px solid color-mix(in srgb, var(--chapter), white 14%);
+  border-radius: 8px;
+  background:
+    linear-gradient(135deg, color-mix(in srgb, var(--chapter), transparent 84%), rgba(255, 255, 255, .04));
+}
+
+.mechanism-copy h3 {
+  font-size: 24px;
+  line-height: 1.22;
+}
+
+.mechanism-flow {
+  display: grid;
+  gap: 10px;
+  align-content: center;
+}
+
+.mechanism-flow div {
+  padding: 14px;
+  border: 1px solid rgba(255, 255, 255, .14);
+  border-left: 4px solid var(--chapter);
+  border-radius: 8px;
+  background: rgba(7, 8, 8, .42);
+}
+
+.mechanism-flow i {
+  color: var(--chapter);
+  font-style: normal;
+  font-weight: 950;
+  text-align: center;
+}
+
+.mechanism-flow code {
+  display: block;
+  width: 100%;
+  overflow-x: auto;
+  margin-top: 4px;
+  white-space: nowrap;
+}
+
+.implementation-deep-dive {
+  display: grid;
+  gap: 14px;
+  margin: 22px 0;
+  padding: 18px;
+  border: 1px solid rgba(255, 255, 255, .14);
+  border-radius: 8px;
+  background: rgba(4, 6, 7, .34);
+}
+
+.deep-dive-title {
+  padding: 18px;
+  border-left: 5px solid var(--chapter);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--chapter), transparent 88%);
+}
+
+.deep-dive-title span, .deep-step > span {
+  display: inline-flex;
+  margin-bottom: 9px;
+  padding: 4px 9px;
+  border: 1px solid rgba(255, 255, 255, .16);
+  border-radius: 999px;
+  color: #d7dee0;
+  font-size: 12px;
+  font-weight: 950;
+}
+
+.deep-dive-title h3 {
+  margin: 0 0 8px;
+  color: #fffdf5;
+  font-size: 26px;
+  line-height: 1.2;
+}
+
+.deep-dive-title p {
+  max-width: 980px;
+  margin: 0;
+  color: #cbd2d4;
+}
+
+.deep-step {
+  position: relative;
+  padding: 18px 18px 18px 22px;
+  border: 1px solid rgba(255, 255, 255, .13);
+  border-left: 4px solid var(--chapter);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, .045);
+}
+
+.deep-step h4 {
+  margin: 0 0 8px;
+  color: #fffdf5;
+  font-size: 20px;
+  line-height: 1.25;
+}
+
+.deep-step p {
+  color: #bfc6c8;
+  margin: 8px 0;
+}
+
+.deep-step .formula-block {
+  margin: 10px 0;
 }
 
 .compact-list {
@@ -274,7 +390,8 @@ main {
   }
 
   .report-hero, .chapter-grid, .implementation-ledger, .contract-strip,
-  .detail-grid, .detail-grid.two, .detail-grid.three, .evidence-grid {
+  .detail-grid, .detail-grid.two, .detail-grid.three, .evidence-grid,
+  .mechanism-primer, .trace-grid, .trace-grid.three {
     grid-template-columns: 1fr;
   }
 

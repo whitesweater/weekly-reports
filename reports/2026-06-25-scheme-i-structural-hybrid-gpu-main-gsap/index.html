@@ -722,6 +722,177 @@ logits = query · item_embeddingᵀ + item_bias</pre>
     <article><b>验收口径</b><p>28/28 rows、日志可解析、质量门通过。性能提升不是这轮唯一验收条件。</p></article>
   </div>
 
+  <div class="mechanism-primer">
+    <div class="mechanism-copy">
+      <span>Reader-first explanation</span>
+      <h3>第一次看这个实验时，先把两个机制理解成两种接入方式</h3>
+      <p><code>attention_bias</code> 不新增 token，也不直接改最终 item logits。它只是在 Transformer 内部的 attention score 上加一张有限 bias 矩阵，让历史 token 更容易看见 Swing 规则给出的 prompt token。</p>
+      <p><code>Mamba</code> 不改 attention score。它先用本地 SSM/Mamba-style block 读一遍用户历史，把最后一个有效历史状态压缩成一个 context token，再把这个 token 放到 Transformer 输入最前面。</p>
+    </div>
+    <div class="mechanism-flow" aria-label="ManCAR native token flow">
+      <div><span>baseline</span><code>[prompt] + [history]</code></div>
+      <i aria-hidden="true">+</i>
+      <div><span>attention_bias</span><code>scores = QK^T / sqrt(d) + mask + bias</code></div>
+      <i aria-hidden="true">+</i>
+      <div><span>mamba</span><code>[context] + [prompt] + [history]</code></div>
+    </div>
+  </div>
+
+  <div class="trace-grid">
+    <article>
+      <span>attention_bias logic</span>
+      <h3>从 Swing prompt 到 attention score</h3>
+      <p>Dataset 先取用户历史最后 <code>trigger_num</code> 个 item，再查每个 trigger item 的 Swing neighbors，截断到 <code>item_per_trigger</code>，不足补 0，flatten 后得到 <code>prompt_ids</code>。当前实现只用 neighbor 是否有效，不按 Swing 边权设置不同 bias。</p>
+      <pre class="formula-block">trigger_items = item_seq[-trigger_num:]
+prompt_ids = flatten(top_neighbors(trigger_items))
+valid_prompt = prompt_ids != 0
+valid_history = history_ids != 0
+bias[history_query, prompt_key] = attention_bias_weight</pre>
+      <p>这张 bias 会在 softmax 前加入每层 attention score；padding 与 causal mask 仍由原 mask 控制。</p>
+    </article>
+    <article>
+      <span>mamba logic</span>
+      <h3>从历史序列到 context token</h3>
+      <p>历史 item embedding 加上 position embedding 后进入 <code>LocalSelectiveSSMBlock</code>。模块逐时间步更新 state，padding 位置保持上一状态不变，最后取每个样本最后一个有效历史位置的 state 作为 context token。</p>
+      <pre class="formula-block">u = Linear(history_embs)
+conv = causal_depthwise_conv(u)
+state_t = decay_t * state_{t-1} + gate_t * value_t
+context = state[last_valid_history_position]
+input_tokens = [context] + [prompt] + [history]</pre>
+      <p>如果样本没有有效 history，context token 置零；context token 参与 Transformer attention，但不进入 prompt supervision。</p>
+    </article>
+  </div>
+
+  <div class="trace-grid three">
+    <article>
+      <span>code path 1</span>
+      <h3>CLI 和 forward 接线</h3>
+      <p><code>ManCAR/models/ManCAR.py</code> 定义 <code>--attention_bias</code>、<code>--attention_bias_weight</code>、<code>--mamba</code>、<code>--mamba_kernel</code>。forward 中根据开关决定是否 prepend context token，并把 <code>attention_bias_enabled</code>、<code>history_ids</code>、<code>context_len</code> 传给 wrapper。</p>
+    </article>
+    <article>
+      <span>code path 2</span>
+      <h3>机制计算函数</h3>
+      <p><code>ManCAR/utils/mancar_mechanisms.py</code> 里有 <code>build_swing_attention_bias</code>、<code>build_token_layout</code>、<code>LocalSelectiveSSMBlock</code>、<code>MambaContextToken</code>。这里负责 bias 矩阵和 context token 的具体数值计算。</p>
+    </article>
+    <article>
+      <span>code path 3</span>
+      <h3>Transformer 内部落点</h3>
+      <p><code>ManCAR/utils/rearec_layers.py</code> 负责 prompt/history/context 的 layout 和 mask；<code>ManCAR/utils/layers.py</code> 在 <code>attention_scores + attention_mask</code> 之后、<code>softmax</code> 之前加上 <code>attention_bias</code>。</p>
+    </article>
+  </div>
+
+  <div class="implementation-deep-dive">
+    <div class="deep-dive-title">
+      <span>Implementation deep dive</span>
+      <h3>完整执行顺序：从 batch 输入到 Transformer attention</h3>
+      <p>下面这部分按代码实际执行顺序写。读者不需要先懂 ManCAR，只需要记住：原始模型已经有 Swing prompt 和 history token；本轮迁移只是在这条主路径上增加 attention score bias 与一个可选 context token。</p>
+    </div>
+
+    <div class="deep-step">
+      <span>1. Dataset stage</span>
+      <h4>先构造 prompt_ids：它来自 Swing neighbors，不是模型生成的新 token</h4>
+      <p>每个样本进入模型前，Dataset 会从用户历史序列里取最后 <code>trigger_num</code> 个 item。对每个 trigger item 查询 <code>self.swing_neighbors</code>，取前 <code>item_per_trigger</code> 个 neighbor，不足的位置补 0。最后把这些 neighbor flatten 成 <code>prompt_ids</code>。</p>
+      <pre class="formula-block">trigger_items = item_seq[-trigger_num:]
+for item in trigger_items:
+  neigh = swing_neighbors[item][:item_per_trigger]
+  neigh = pad_to_length(neigh, item_per_trigger, pad=0)
+  prompt_ids.extend(neigh)</pre>
+      <p>这里的 <code>0</code> 是 padding。后续 attention_bias 只判断 <code>prompt_ids != 0</code>，所以当前 ManCAR native 迁移没有把 Swing 边权大小写进 bias，只把“这个 prompt token 是否有效”写进 bias。</p>
+    </div>
+
+    <div class="deep-step">
+      <span>2. Embedding stage</span>
+      <h4>再构造 Transformer 输入：prompt embedding 与 history embedding 仍是主路径</h4>
+      <p>forward 中，历史 item 先经过 item embedding、feature embedding 汇总，并加上 position embedding。prompt token 也用同一套 item/feature embedding 转成 prompt embedding。baseline 输入就是 prompt 加 history。</p>
+      <pre class="formula-block">hist_valid_mask = item_seq_ids != 0
+pos_ids = cumsum(hist_valid_mask)
+history_embs = item_embedding(history_ids) + feature_embs + position_embs
+prompt_embs = item_embedding(prompt_ids) + prompt_feature_embs
+
+baseline_tokens = [prompt_embs] + [history_embs]</pre>
+    </div>
+
+    <div class="deep-step">
+      <span>3. Mamba branch</span>
+      <h4>如果打开 --mamba，就先把 history 压成一个 context token</h4>
+      <p><code>MambaContextToken</code> 接收完整历史 embedding 与 <code>hist_valid_mask</code>。内部的 <code>LocalSelectiveSSMBlock</code> 先做线性投影和 depthwise causal convolution，再生成三组门控量：<code>decay</code>、<code>gate</code>、<code>value</code>。</p>
+      <pre class="formula-block">u = input_proj(history_embs)
+conv = gelu(causal_depthwise_conv(u))
+decay = sigmoid(decay_proj(conv))
+gate = sigmoid(gate_proj(conv))
+value = tanh(value_proj(conv))</pre>
+      <p>然后逐时间步更新状态。padding 位置不更新 state，保持上一状态，避免左 padding 改变用户历史摘要。</p>
+      <pre class="formula-block">proposed_t = decay_t * state_{t-1} + gate_t * value_t
+state_t = proposed_t if history_mask_t else state_{t-1}
+output_t = state_t * gate_t</pre>
+      <p>最后取每个样本最后一个有效历史位置的 state 作为 <code>context</code>，形状是 <code>[B, 1, D]</code>。如果没有有效 history，则返回全零 context。</p>
+      <pre class="formula-block">last_index = max(raw_position where history_mask is true)
+context_token = ssm_states[batch_index, last_index].unsqueeze(1)</pre>
+    </div>
+
+    <div class="deep-step">
+      <span>4. Token layout</span>
+      <h4>Mamba 开关只改变 token layout，不改变 prompt supervision 的切片含义</h4>
+      <p>不开 Mamba 时，Transformer 输入为 <code>[prompt] + [history]</code>。打开 Mamba 时，输入为 <code>[context] + [prompt] + [history]</code>，并设置 <code>context_len=1</code>。后续所有 prompt/history 的 offset 都由 <code>build_token_layout</code> 统一计算。</p>
+      <pre class="formula-block">if mamba:
+  input_tokens = [context] + [prompt] + [history]
+  context_len = 1
+else:
+  input_tokens = [prompt] + [history]
+  context_len = 0
+
+prompt_start = context_len
+prompt_end = context_len + prompt_len
+history_start = prompt_end</pre>
+      <p>这点很重要：如果两个机制同时打开，attention_bias 需要知道前面多了一个 context token，否则 bias 会写到错误的列或行。</p>
+    </div>
+
+    <div class="deep-step">
+      <span>5. attention_bias matrix</span>
+      <h4>如果打开 --attention_bias，就构造一张有限加性 attention-score bias</h4>
+      <p>bias 的形状是 <code>[B, 1, total_len, total_len]</code>，head 维度为 1，后续会 broadcast 到所有 attention heads。设 <code>C=context_len</code>，<code>P=prompt_len</code>，<code>L=history_len</code>，<code>S=think_len</code>，则 <code>total_len=C+P+L+S</code>。</p>
+      <pre class="formula-block">valid_prompt = prompt_ids != 0
+valid_history = history_ids != 0
+bias = zeros([B, 1, total_len, total_len])
+
+prompt key columns  = [C, C+P)
+history query rows = [C+P, C+P+L)
+thinking rows      = [C+P+L, C+P+L+S)</pre>
+      <p>实际写入规则是：有效 history query 看有效 prompt key 时加 <code>attention_bias_weight</code>；生成的 thinking token query 看有效 prompt key 时也加同样权重。prompt padding 和 history padding 都保持 0。</p>
+      <pre class="formula-block">bias[history_query_rows, prompt_key_cols] =
+  valid_history[:, :, None] AND valid_prompt[:, None, :]
+
+if think_len &gt; 0:
+  bias[thinking_query_rows, prompt_key_cols] = valid_prompt
+
+attention_bias = bias * attention_bias_weight</pre>
+      <p>因此它的语义非常具体：不是给某个候选 item 最终加分，而是让 Transformer 内部的 history/thinking token 更倾向于 attend 到 Swing prompt token。</p>
+    </div>
+
+    <div class="deep-step">
+      <span>6. Transformer score stage</span>
+      <h4>真正生效的位置在 softmax 前</h4>
+      <p>Transformer attention 先算普通点积 score，再加 padding/causal mask。如果传入了 <code>attention_bias</code>，就在 softmax 前继续加上它。KV-cache 增量推理时，mask 和 bias 都会切到当前 <code>query_len</code> 与 <code>key_len</code>，避免 full pass 与 cached pass shape 不一致。</p>
+      <pre class="formula-block">attention_scores = QK^T / sqrt(head_dim)
+attention_scores = attention_scores + attention_mask
+attention_scores = attention_scores + attention_bias
+attention_probs = softmax(attention_scores)
+context_layer = attention_probs @ V</pre>
+      <p>这也解释了为什么我们称它为 Transformer attention-score bias，而不是 rule reranker 或 logits bias。</p>
+    </div>
+
+    <div class="deep-step">
+      <span>7. Combined setting</span>
+      <h4>两个机制同时开时，各自负责不同位置</h4>
+      <p><code>attention_bias_mamba</code> 不是把两个输出相加，而是在同一次 Transformer forward 中同时发生两件事：Mamba 提供前置 context token；attention_bias 在 score 矩阵中增强 history/thinking token 到 Swing prompt token 的连接。</p>
+      <pre class="formula-block">tokens = [context] + [prompt] + [history]
+layout = build_token_layout(prompt_len=P, history_len=L, context_len=1)
+bias[history_query, prompt_key] = attention_bias_weight
+Transformer(tokens, attention_mask, attention_bias)</pre>
+      <p>所以这组消融可以回答两个问题：context token 是否有帮助，attention-score prior 是否有帮助，以及两者在同一个原始 ManCAR 主路径里是否能一起工作。</p>
+    </div>
+  </div>
+
   <div class="implementation-ledger">
     <div>
       <b>新增代码入口</b>
