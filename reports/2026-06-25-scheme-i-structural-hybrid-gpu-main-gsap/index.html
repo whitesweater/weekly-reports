@@ -1,0 +1,814 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Scheme-I GSAP 交互式实验报告</title>
+<link rel="stylesheet" href="report_assets/scheme_i_gsap_report.css" />
+</head>
+<body>
+<div id="scroll-progress"></div>
+<nav class="topbar">
+  <a href="#hero">Overview</a>
+  <a href="#story">Story</a>
+  <a href="#g02-g04-primer">G02/G04</a>
+  <a href="#experiment-flow">Method</a>
+  <a href="#results">Results</a>
+  <a href="#mancar-native-ablation">ManCAR</a>
+  <a href="#evidence">Evidence</a>
+</nav>
+<main>
+<section id="hero" class="hero panel">
+  <div class="hero-copy">
+    <span class="eyebrow">Scheme-I · Structural hybrid redesign · GSAP report</span>
+    <h1>从 G02/G04 规则推荐到可训练的神经结构 prior</h1>
+    <p>这份汇报回答一个问题：G02/G04 已经学到的三类规则知识，能否被放进神经网络训练流程里，并通过 <strong>rule bias</strong>、<strong>Mamba context</strong>、<strong>Transformer attention</strong> 与 <strong>gated fusion</strong> 做受控验证。</p>
+    <div class="hero-actions">
+      <a class="primary" href="#story">从路线图开始</a>
+      <a class="secondary" href="scheme_i_structural_hybrid_gpu_main_results.json">打开 source JSON</a>
+    </div>
+  </div>
+  <div class="orb-stage" aria-hidden="true">
+    <div class="orb orb-a"></div><div class="orb orb-b"></div><div class="orb orb-c"></div>
+    <div class="ring"><span>7×4</span><small>validated</small></div>
+  </div>
+</section>
+
+<section class="kpi-grid" aria-label="关键指标">
+<article class="kpi glass reveal"><span>Final artifacts</span><strong class="counter" data-count="28">0</strong><small>/ 28 expected</small></article>
+<article class="kpi glass reveal"><span>Validated matrix</span><strong>PASS</strong><small>canonical 7×4 manifest</small></article>
+<article class="kpi glass reveal"><span>Best NDCG@10</span><strong>0.0195</strong><small>Video_Games · Mamba context token</small></article>
+<article class="kpi glass reveal"><span>Dominant winner</span><strong>Mamba context token</strong><small>3/7 datasets by NDCG@10</small></article>
+</section>
+
+<section class="panel reveal story-panel" id="story">
+  <div class="section-head"><span>00</span><h2>先给第一次读者的路线图：这份报告到底在讲什么</h2></div>
+  <div class="story-callout">
+    <strong>一句话：</strong>我们先有一个强规则系统 G02/G04，它学到了三类可解释知识；现在要验证这些知识能否从“训练后规则打分”升级为“神经网络训练过程中的结构化 prior”。
+  </div>
+  <div class="story-grid">
+    <article><span>1 · 背景</span><b>G02/G04 学到了什么？</b><p>它不是黑盒模型，而是从训练数据里沉淀出三条实际有效的规则机制：相关物品优先、热门物品代替、见过物品惩罚。</p></article>
+    <article><span>2 · 问题</span><b>为什么不能直接继续用规则？</b><p>规则系统可解释但不可端到端学习，无法自动和 embedding、attention、sequence dynamics 对齐。</p></article>
+    <article><span>3 · 方法</span><b>Scheme-I 怎么升级？</b><p>固定同一个 next-item recommender 底座，把 rule prior、Mamba context、Transformer attention、gated fusion 变成可验证结构。</p></article>
+    <article><span>4 · 实验</span><b>怎么证明结构有效？</b><p>跑 7 个数据集 × 4 个模型变体，所有变体使用同一训练协议、同一划分、同一指标。</p></article>
+    <article><span>5 · 结果</span><b>最后看什么？</b><p>看 NDCG@10 / HR@10 / FutureNDCG@10、winner count 和 ablation 分布，而不是只看单个模型的一次分数。</p></article>
+  </div>
+</section>
+
+<section class="panel reveal deep-dive primer-section" id="g02-g04-primer">
+  <div class="section-head"><span>01</span><h2>预备知识：G02/G04 原来的规则推荐系统是怎么做的</h2></div>
+  <p class="lede-strong">第一次看这份报告时，需要先知道我们升级的对象是什么：G02/G04 不是神经网络，而是一套基于用户历史序列、item 共现图、时间近因和候选校准的规则推荐器。更准确地说，它沉淀了三类知识：哪些相关物品应该优先、候选不够时用哪些热门物品代替、哪些用户已经见过的物品应该被惩罚或过滤。Scheme-I 做的是把这三类规则知识改造成可训练模型里的 prior / bias / fusion signal。</p>
+
+  <div class="primer-summary knowledge-grid">
+    <article><span>知识 1</span><b>相关物品优先</b><p>从训练集共现图学习 <code>history item → target item</code> 的关联强度；用户历史中相关的候选 item 应该排在更前。</p></article>
+    <article><span>知识 2</span><b>热门物品代替</b><p>当共现候选不足 Top-10，或者某些用户历史无法产生足够候选时，用训练集热门物品作为 fallback 补齐推荐列表。</p></article>
+    <article><span>知识 3</span><b>见过物品惩罚</b><p>用户历史中已经出现过的 item 通常不应继续占据 Top-10 推荐位；G02/G04 通过 hard filter 或 soft penalty 惩罚 seen items。</p></article>
+  </div>
+
+  <div class="g02-flow" aria-label="G02/G04 规则推荐流程">
+    <div class="g02-step" style="--accent:#7C8CF8">
+      <span>Step 1</span><b>构建共现图</b>
+      <p>只用 train split 扫描用户序列。如果 item <code>a</code> 经常和后续 item <code>b</code> 共同出现，就累积一条 <code>a → b</code> 的边权。</p>
+      <pre class="formula-block">cooc(a,b) = count / idf / association strength
+optional normalization</pre>
+    </div>
+    <i>→</i>
+    <div class="g02-step" style="--accent:#18B8A6">
+      <span>Step 2</span><b>相关物品优先</b>
+      <p>预测时用用户 history 里的 item 查共现邻居；越相关的候选 item 得分越高，形成主推荐列表。</p>
+      <pre class="formula-block">candidate(j) += Σ_i weight(i→j)</pre>
+    </div>
+    <i>→</i>
+    <div class="g02-step" style="--accent:#F59E0B">
+      <span>Step 3</span><b>热门物品代替</b>
+      <p>如果相关候选不足 Top-10，就用训练集热门物品补齐；这个 fallback 不偷看 test target，只使用训练侧统计。</p>
+      <pre class="formula-block">if len(rank) &lt; 10:
+  fill_with(popular_items)</pre>
+    </div>
+    <i>→</i>
+    <div class="g02-step" style="--accent:#EC4899">
+      <span>Step 4</span><b>见过物品惩罚</b>
+      <p>对用户历史里已经出现过的 item 做 hard filter 或 soft penalty，避免 seen items 浪费 Top-10 槽位。</p>
+      <pre class="formula-block">if item in seen_history:
+  remove or score *= exp(-penalty)</pre>
+    </div>
+  </div>
+
+  <div class="explain-grid three">
+    <article class="explain-card">
+      <b>G02/G04 的本质</b>
+      <p>它不是单一共现表，而是一套可解释排序策略：先让相关物品优先，再用热门物品兜底，最后惩罚用户已经见过的物品。</p>
+      <pre class="formula-block">h_j = Σ_i G_rule(i,j) · x_i</pre>
+    </article>
+    <article class="explain-card">
+      <b>为什么必须 train-only？</b>
+      <p>规则图如果使用 valid/test 的未来交互，就会把答案泄漏给模型。因此 G02/G04 升级进神经网络时，规则 prior 只能从训练集统计。</p>
+      <pre class="formula-block">fit_rule_graph(train)
+never fit on valid/test future items</pre>
+    </article>
+    <article class="explain-card">
+      <b>Scheme-I 如何继承它？</b>
+      <p>Scheme-I 不再让规则系统直接替代模型输出，而是把它作为 <code>rule_prior_logits</code>、attention/logit bias 或 gated fusion 的一个信号源。</p>
+      <pre class="formula-block">neural_logits
+ λ · rule_prior_logits
+ optional learned gate</pre>
+    </article>
+  </div>
+
+  <div class="callout-wide">
+    <strong>一句话连接旧方法和新方法：</strong>
+    G02/G04 原来是“相关物品优先 + 热门物品代替 + 见过物品惩罚”的规则排序器；Scheme-I 是“固定一个神经 next-item recommender，再把这些规则机制变成可学习训练流程中的 prior / bias / fusion signal”。
+  </div>
+</section>
+
+<section id="model" class="panel reveal">
+  <div class="section-head"><span>02</span><h2>从 Scheme-H 到 Scheme-I：我们到底改了什么</h2></div>
+  <p class="lede-strong">Scheme-H 已经证明“规则 prior 可以进入神经训练并被系统性消融”，但 naive residual-sum 会把不同坐标系的信号硬加在一起。Scheme-I 的核心改动是：不再堆分支，而是改变信号注入位置。</p>
+  <div class="timeline">
+    <div class="step"><b>Rule prior</b><p>train-only 共现图不再作为 noisy branch 相加，而是进入 sparse item logit bias / attention-style prior。</p></div>
+    <div class="step"><b>Mamba / SSM</b><p>长程状态作为 context token 条件化注意力，避免与 Transformer hidden space 硬相加。</p></div>
+    <div class="step"><b>Transformer</b><p>保留自注意力作为最稳定 neural learner，用来学习细粒度 item interaction。</p></div>
+    <div class="step"><b>Gate</b><p>full 版本用 learned softmax gate，而非固定 residual sum，让模型自己决定各信号权重。</p></div>
+  </div>
+</section>
+
+<section class="panel reveal deep-dive" id="base-model">
+  <div class="section-head"><span>03A</span><h2>共同基础模型：四个变体都挂在同一个 next-item recommender 上</h2></div>
+  <p class="lede-strong">这里的四个实验变体不是四个完全独立的模型，而是同一个轻量级序列推荐基础模型，加上不同结构模块开关。基础模型不是 ManCAR 原模型，也不是 NanoGPT 原版；它是在 <code>clwm_rec/hybrid_model.py</code> 中实现的 item-sequence next-item recommender。</p>
+  <div class="explain-grid two">
+    <article class="explain-card">
+      <b>模型任务</b>
+      <p>输入用户历史 item 序列，输出所有候选 item 的 ranking logits，用来预测下一个 item。</p>
+      <pre class="formula-block">history = [item1, item2, ..., itemT]
+model(history) → z_user
+z_user · item_embeddingᵀ → logits over all items</pre>
+    </article>
+    <article class="explain-card">
+      <b>为什么要固定基础模型？</b>
+      <p>如果每个变体底座不同，就无法判断性能差异来自 rule、Mamba、attention，还是来自底座变化。因此 Scheme-I 固定 <code>pooling_mean_last</code> scaffold，让实验只比较结构模块。</p>
+      <pre class="formula-block">fixed_scaffold:
+  base_encoder = pooling_mean_last
+  always_enabled = true</pre>
+    </article>
+  </div>
+  <div class="pipeline">
+    <div class="pipe-node"><span>1</span><b>Item IDs</b><small>历史序列</small></div>
+    <div class="pipe-arrow">→</div>
+    <div class="pipe-node"><span>2</span><b>Embedding</b><small>item + position</small></div>
+    <div class="pipe-arrow">→</div>
+    <div class="pipe-node"><span>3</span><b>Mean + Last</b><small>整体兴趣 + 最近兴趣</small></div>
+    <div class="pipe-arrow">→</div>
+    <div class="pipe-node"><span>4</span><b>Base encoder</b><small>MLP 得到 z_base</small></div>
+    <div class="pipe-arrow">→</div>
+    <div class="pipe-node"><span>5</span><b>Dot-product head</b><small>next-item ranking</small></div>
+  </div>
+  <div class="explain-grid three">
+    <article class="explain-card">
+      <b>Step 1：item embedding + position embedding</b>
+      <p>每个 item id 先查一个可学习向量，同时加上位置向量，让模型知道一个 item 在历史序列中的相对位置。</p>
+      <pre class="formula-block">item_id → item_embedding
+embedding_t = item_embedding_t + position_embedding_t</pre>
+    </article>
+    <article class="explain-card">
+      <b>Step 2：mean-last pooling base encoder</b>
+      <p>基础模型同时取历史 item 的平均表示和最后一个有效 item 的表示。平均表示对应整体兴趣，最后一个 item 对应最近意图。</p>
+      <pre class="formula-block">mean_emb = mean(history embeddings)
+last_emb = last valid item embedding
+z_base = MLP([mean_emb, last_emb])</pre>
+    </article>
+    <article class="explain-card">
+      <b>Step 3：item logits head</b>
+      <p>用户向量 <code>z</code> 被投影回 item embedding 空间，再和所有 item embedding 做点积，得到全量 item vocabulary 上的排序分数。</p>
+      <pre class="formula-block">query = W z
+logits = query · item_embeddingᵀ + item_bias
+rank_items = sort(logits)</pre>
+    </article>
+  </div>
+</section>
+
+<section class="panel reveal deep-dive" id="module-wiring">
+  <div class="section-head"><span>03B</span><h2>四个模块如何接到基础模型上</h2></div>
+  <p class="lede-strong">共同基础模型固定以后，Scheme-I 比较的就是不同模块如何改变用户向量 <code>z</code> 或最终 logits。下面这四个变体都共享 item embedding、position embedding、mean-last base encoder 和 dot-product item head。</p>
+  <div class="wiring-grid">
+    <article class="wiring-card" style="--accent:#7C8CF8">
+      <span class="chip">Variant 1</span>
+      <h3>transformer_only</h3>
+      <p>基础模型加 Transformer self-attention。它检验纯神经 attention 在同一底座上能学到多少 item transition。</p>
+      <pre class="formula-block">z_base = base(history)
+z_attention = Transformer(history)
+z = LayerNorm(z_base + z_attention)</pre>
+    </article>
+    <article class="wiring-card" style="--accent:#18B8A6">
+      <span class="chip">Variant 2</span>
+      <h3>rule_attention_bias</h3>
+      <p>用户向量仍来自 base + attention，但规则 prior 不再变成 hidden branch，而是在最后 logits 上作为稀疏 bias 推一把。</p>
+      <pre class="formula-block">z = LayerNorm(z_base + z_attention)
+neural_logits = item_head(z)
+logits = neural_logits + λ · rule_prior_logits</pre>
+    </article>
+    <article class="wiring-card" style="--accent:#F59E0B">
+      <span class="chip">Variant 3</span>
+      <h3>mamba_context_token</h3>
+      <p>Mamba/SSM 不再和 Transformer 输出硬相加，而是先压缩历史成为 context token，再让 Transformer attend to this token。</p>
+      <pre class="formula-block">context = Mamba(history)
+tokens = [context_token, item1, ..., itemT]
+z_attention = Transformer(tokens)
+z = LayerNorm(z_base + z_attention)</pre>
+    </article>
+    <article class="wiring-card" style="--accent:#EC4899">
+      <span class="chip">Variant 4</span>
+      <h3>gated_fusion_full</h3>
+      <p>完整模型同时得到 base、attention、Mamba、rule 四个向量，用 learned softmax gate 决定每类信号权重。</p>
+      <pre class="formula-block">z = α₁z_base + α₂z_attention
+  + α₃z_mamba + α₄z_rule
+α = softmax(gate_logits)
+logits = item_head(z) + λ · rule_prior_logits</pre>
+    </article>
+  </div>
+  <div class="callout-wide">
+    <strong>一句话总结：</strong>
+    Scheme-I 的“基础模型”是 <em>item embedding + position embedding + mean/last pooling 用户编码器 + item dot-product ranking head</em>。
+    四个模块不是替换这个模型，而是在它上面测试 attention、rule prior、Mamba context 和 gated fusion 的不同接法。
+  </div>
+</section>
+
+<section class="panel reveal method-architecture" id="experiment-flow">
+  <div class="section-head"><span>04</span><h2>方法架构图：数据处理 → 基础模型 → 四个结构模型 → Fusion → 评估</h2></div>
+  <p class="lede-strong">这张图要解决一个汇报中的核心问题：第一次看报告的人，需要立刻知道我们到底用了什么方法、数据怎么进来、模型怎么处理、四个模型差异在哪里、最后如何融合并评估。</p>
+  <div class="reader-guide-grid">
+    <article><span>研究问题</span><b>能不能把规则推荐变成可训练结构？</b><p>原来的 G02/G04 是基于共现、时间衰减和邻居规则的推荐系统。现在的目标是把这些规则信号放进神经网络训练流程，而不是只做训练后的 lookup。</p></article>
+    <article><span>方法主线</span><b>固定一个基础模型，只改变结构模块</b><p>所有实验共享同一个 next-item recommender 底座，然后分别测试 attention、rule bias、Mamba context、gated fusion 四种接法。</p></article>
+    <article><span>读图顺序</span><b>从上到下读：数据 → 底座 → 四个模型 → 输出评估</b><p>动画会按这个顺序播放，模拟信息流从用户历史进入模型，再分支到四个结构变体，最后汇入统一 ranking 和实验指标。</p></article>
+  </div>
+
+  <div class="arch-stage stable-arch" aria-label="实验方法架构图">
+    <div class="arch-lane-title">1. Data processing：先把原始行为变成可训练的 next-item 样本</div>
+    <div class="arch-row data-row">
+      <article class="arch-node data-node" style="--accent:#7C8CF8"><span>Data 1</span><b>原始用户行为</b><small>Amazon/Yelp 等用户-item交互，包含用户、物品、时间顺序</small></article>
+      <i class="arch-arrow" aria-hidden="true">→</i>
+      <article class="arch-node data-node" style="--accent:#7C8CF8"><span>Data 2</span><b>序列样本构造</b><small>每个用户按时间排序，形成 history → next-item 预测样本</small></article>
+      <i class="arch-arrow" aria-hidden="true">→</i>
+      <article class="arch-node data-node" style="--accent:#7C8CF8"><span>Data 3</span><b>训练输入与规则图</b><small>生成 padded sequence batch + mask；只用 train 统计共现图，避免泄漏</small></article>
+    </div>
+
+    <div class="arch-down-arrow" aria-hidden="true">↓</div>
+
+    <div class="arch-lane-title">2. Shared base model：四个模型共用同一个基础推荐器</div>
+    <article class="arch-node base-node" style="--accent:#F59E0B">
+      <span>Shared base</span>
+      <h3>共同基础模型</h3>
+      <p>这是所有变体共享的 next-item recommender：把用户历史 item 序列编码成用户向量 <code>z_base</code>。它保证实验比较的是模块差异，而不是底座差异。</p>
+      <pre>history ids → item/pos embeddings
+mean_emb + last_emb → MLP → z_base</pre>
+    </article>
+
+    <div class="arch-down-arrow split" aria-hidden="true">↓ 分支对照 ↓</div>
+
+    <div class="arch-lane-title">3. Four controlled model variants：同一底座上接四种结构</div>
+    <div class="arch-row branch-row">
+      <article class="arch-node branch-node" style="--accent:#7C8CF8"><span>Model A</span><b>transformer_only</b><small>只加 self-attention：检验纯神经 attention 是否能学习 item transition。</small><pre>z = LN(z_base + Attn(history))</pre></article>
+      <article class="arch-node branch-node" style="--accent:#18B8A6"><span>Model B</span><b>rule_attention_bias</b><small>规则不再作为独立 branch，而是在 item logits 上作为 train-only prior bias。</small><pre>logits = neural_logits + λ·rule_prior_logits</pre></article>
+      <article class="arch-node branch-node" style="--accent:#F59E0B"><span>Model C</span><b>mamba_context_token</b><small>Mamba 压缩历史趋势，作为 context token 条件化 Transformer。</small><pre>context = Mamba(history)
+Attn([context, history])</pre></article>
+      <article class="arch-node branch-node" style="--accent:#EC4899"><span>Model D</span><b>gated_fusion_full</b><small>完整模型学习一个 gate，动态融合 base / attention / mamba / rule 四类信号。</small><pre>α = softmax(gate)
+z = Σ αᵢ zᵢ</pre></article>
+    </div>
+
+    <div class="arch-down-arrow merge" aria-hidden="true">↓ 统一输出 ↓</div>
+
+    <div class="arch-row output-row">
+      <article class="arch-node fusion-node" style="--accent:#EC4899">
+        <span>Fusion / Ranking</span>
+        <h3>统一输出层</h3>
+        <p>四个模型虽然结构不同，但最终都回到同一个 ranking 任务：给所有候选 item 打分，预测用户下一步最可能交互的物品。</p>
+        <pre>query = Wz
+logits = query · item_embeddingᵀ + item_bias</pre>
+        <div class="fusion-ring" aria-hidden="true"></div>
+      </article>
+      <i class="arch-arrow big" aria-hidden="true">→</i>
+      <article class="arch-node eval-node" style="--accent:#18B8A6">
+        <span>Evaluation</span>
+        <h3>统一实验矩阵</h3>
+        <p>同一训练脚本、同一划分、同一指标比较 7 datasets × 4 variants，避免“模型 A 和模型 B 评估口径不同”的问题。</p>
+      </article>
+    </div>
+  </div>
+
+  <div class="arch-explain-grid">
+    <article><b>数据如何处理</b><p>每个用户的行为先按时间排序，构造 <code>history → next item</code> 样本。规则共现图只从训练集统计，不接触 valid/test future item。</p></article>
+    <article><b>基础模型是什么</b><p>基础模型不是独立 baseline 名称，而是所有变体共享的 item-sequence encoder：embedding、position、mean-last pooling、MLP、item dot-product head。</p></article>
+    <article><b>如何 fusion</b><p>前三个变体控制单一结构因素；full 变体使用 learned softmax gate 把 base、attention、Mamba、rule 四类信号做可学习融合，而不是固定相加。</p></article>
+  </div>
+</section>
+
+<section class="panel reveal">
+  <div class="section-head"><span>05</span><h2>四个受控变体</h2></div>
+  <div class="variant-grid" id="variantCards">
+<button class="variant-card reveal" data-variant="transformer_only" style="--accent:#7C8CF8">
+  <span class="chip">1 wins</span>
+  <strong>Transformer only</strong>
+  <em>Mean NDCG@10 · 0.0104</em>
+  <p>固定 base scaffold + self-attention，作为干净 neural learner 对照。</p>
+</button><button class="variant-card reveal" data-variant="rule_attention_bias" style="--accent:#18B8A6">
+  <span class="chip">2 wins</span>
+  <strong>Rule attention bias</strong>
+  <em>Mean NDCG@10 · 0.0105</em>
+  <p>把 train-only 共现 prior 注入 item logits / attention-style bias，不再作为独立分支相加。</p>
+</button><button class="variant-card reveal" data-variant="mamba_context_token" style="--accent:#F59E0B">
+  <span class="chip">3 wins</span>
+  <strong>Mamba context token</strong>
+  <em>Mean NDCG@10 · 0.0106</em>
+  <p>把 SSM/Mamba 历史状态作为 context token 条件化 Transformer，而非 residual branch。</p>
+</button><button class="variant-card reveal" data-variant="gated_fusion_full" style="--accent:#EC4899">
+  <span class="chip">1 wins</span>
+  <strong>Gated fusion full</strong>
+  <em>Mean NDCG@10 · 0.0095</em>
+  <p>用 learned gate 融合 base / attention / Mamba / rule vector，替代 naive residual sum。</p>
+</button>
+  </div>
+</section>
+
+<section id="results" class="panel reveal">
+  <div class="section-head"><span>06</span><h2>GPU-main 结果矩阵</h2></div>
+  <p class="muted">点击变体卡片或下方筛选器可聚焦对应变体。色块显示 NDCG@10，星标边框表示该数据集 NDCG@10 winner。</p>
+  <div class="filters" id="filters"><button data-variant="all" class="active">All variants</button><button data-variant="transformer_only">Transformer only</button><button data-variant="rule_attention_bias">Rule attention bias</button><button data-variant="mamba_context_token">Mamba context token</button><button data-variant="gated_fusion_full">Gated fusion full</button></div>
+  <div class="dashboard">
+    <div class="chart-card">
+      <h3>Mean NDCG@10 by variant</h3>
+      <div class="bars"><div class="bar-row reveal" data-variant="transformer_only">
+  <span>Transformer only</span>
+  <div class="bar-track"><i style="--w:97.98%;--accent:#7C8CF8"></i></div>
+  <b>0.0104</b>
+</div><div class="bar-row reveal" data-variant="rule_attention_bias">
+  <span>Rule attention bias</span>
+  <div class="bar-track"><i style="--w:99.33%;--accent:#18B8A6"></i></div>
+  <b>0.0105</b>
+</div><div class="bar-row reveal" data-variant="mamba_context_token">
+  <span>Mamba context token</span>
+  <div class="bar-track"><i style="--w:100.00%;--accent:#F59E0B"></i></div>
+  <b>0.0106</b>
+</div><div class="bar-row reveal" data-variant="gated_fusion_full">
+  <span>Gated fusion full</span>
+  <div class="bar-track"><i style="--w:89.74%;--accent:#EC4899"></i></div>
+  <b>0.0095</b>
+</div></div>
+    </div>
+    <div class="chart-card">
+      <h3>Winner count</h3>
+      <div class="winner-donut" data-winners='{&quot;transformer_only&quot;: 1, &quot;rule_attention_bias&quot;: 2, &quot;mamba_context_token&quot;: 3, &quot;gated_fusion_full&quot;: 1}'></div>
+      <p class="muted small">按每个数据集最高 NDCG@10 计数。</p>
+    </div>
+  </div>
+  <div class="heatmap" style="--cols:5">
+    <div class="heat-label"></div><div class="heat-label variant">Transformer only</div><div class="heat-label variant">Rule attention bias</div><div class="heat-label variant">Mamba context token</div><div class="heat-label variant">Gated fusion full</div>
+    <div class="heat-label dataset">Arts_Crafts_and_Sewing</div><button class="heat-cell winner" data-variant="transformer_only" data-dataset="Arts_Crafts_and_Sewing" style="--intensity:0.503;--mix:37.7%;--accent:#7C8CF8">
+  <span>0.0098</span><small>-14.0%</small>
+</button><button class="heat-cell" data-variant="rule_attention_bias" data-dataset="Arts_Crafts_and_Sewing" style="--intensity:0.497;--mix:37.3%;--accent:#18B8A6">
+  <span>0.0097</span><small>-14.9%</small>
+</button><button class="heat-cell" data-variant="mamba_context_token" data-dataset="Arts_Crafts_and_Sewing" style="--intensity:0.487;--mix:36.5%;--accent:#F59E0B">
+  <span>0.0095</span><small>-16.7%</small>
+</button><button class="heat-cell" data-variant="gated_fusion_full" data-dataset="Arts_Crafts_and_Sewing" style="--intensity:0.287;--mix:21.5%;--accent:#EC4899">
+  <span>0.0056</span><small>-50.9%</small>
+</button><div class="heat-label dataset">CDs_and_Vinyl</div><button class="heat-cell" data-variant="transformer_only" data-dataset="CDs_and_Vinyl" style="--intensity:0.426;--mix:31.9%;--accent:#7C8CF8">
+  <span>0.0083</span><small>-70.9%</small>
+</button><button class="heat-cell" data-variant="rule_attention_bias" data-dataset="CDs_and_Vinyl" style="--intensity:0.436;--mix:32.7%;--accent:#18B8A6">
+  <span>0.0085</span><small>-70.2%</small>
+</button><button class="heat-cell" data-variant="mamba_context_token" data-dataset="CDs_and_Vinyl" style="--intensity:0.359;--mix:26.9%;--accent:#F59E0B">
+  <span>0.0070</span><small>-75.4%</small>
+</button><button class="heat-cell winner" data-variant="gated_fusion_full" data-dataset="CDs_and_Vinyl" style="--intensity:0.610;--mix:45.8%;--accent:#EC4899">
+  <span>0.0119</span><small>-58.2%</small>
+</button><div class="heat-label dataset">Grocery_and_Gourmet_Food</div><button class="heat-cell" data-variant="transformer_only" data-dataset="Grocery_and_Gourmet_Food" style="--intensity:0.477;--mix:35.8%;--accent:#7C8CF8">
+  <span>0.0093</span><small>-21.2%</small>
+</button><button class="heat-cell winner" data-variant="rule_attention_bias" data-dataset="Grocery_and_Gourmet_Food" style="--intensity:0.482;--mix:36.2%;--accent:#18B8A6">
+  <span>0.0094</span><small>-20.3%</small>
+</button><button class="heat-cell" data-variant="mamba_context_token" data-dataset="Grocery_and_Gourmet_Food" style="--intensity:0.482;--mix:36.2%;--accent:#F59E0B">
+  <span>0.0094</span><small>-20.3%</small>
+</button><button class="heat-cell" data-variant="gated_fusion_full" data-dataset="Grocery_and_Gourmet_Food" style="--intensity:0.338;--mix:25.4%;--accent:#EC4899">
+  <span>0.0066</span><small>-44.1%</small>
+</button><div class="heat-label dataset">Musical_Instruments</div><button class="heat-cell" data-variant="transformer_only" data-dataset="Musical_Instruments" style="--intensity:0.574;--mix:43.1%;--accent:#7C8CF8">
+  <span>0.0112</span><small>-10.4%</small>
+</button><button class="heat-cell" data-variant="rule_attention_bias" data-dataset="Musical_Instruments" style="--intensity:0.574;--mix:43.1%;--accent:#18B8A6">
+  <span>0.0112</span><small>-10.4%</small>
+</button><button class="heat-cell winner" data-variant="mamba_context_token" data-dataset="Musical_Instruments" style="--intensity:0.590;--mix:44.2%;--accent:#F59E0B">
+  <span>0.0115</span><small>-8.0%</small>
+</button><button class="heat-cell" data-variant="gated_fusion_full" data-dataset="Musical_Instruments" style="--intensity:0.544;--mix:40.8%;--accent:#EC4899">
+  <span>0.0106</span><small>-15.2%</small>
+</button><div class="heat-label dataset">Office_Products</div><button class="heat-cell" data-variant="transformer_only" data-dataset="Office_Products" style="--intensity:0.518;--mix:38.8%;--accent:#7C8CF8">
+  <span>0.0101</span><small>-22.9%</small>
+</button><button class="heat-cell winner" data-variant="rule_attention_bias" data-dataset="Office_Products" style="--intensity:0.528;--mix:39.6%;--accent:#18B8A6">
+  <span>0.0103</span><small>-21.4%</small>
+</button><button class="heat-cell" data-variant="mamba_context_token" data-dataset="Office_Products" style="--intensity:0.523;--mix:39.2%;--accent:#F59E0B">
+  <span>0.0102</span><small>-22.1%</small>
+</button><button class="heat-cell" data-variant="gated_fusion_full" data-dataset="Office_Products" style="--intensity:0.467;--mix:35.0%;--accent:#EC4899">
+  <span>0.0091</span><small>-30.5%</small>
+</button><div class="heat-label dataset">Toys_and_Games</div><button class="heat-cell" data-variant="transformer_only" data-dataset="Toys_and_Games" style="--intensity:0.354;--mix:26.5%;--accent:#7C8CF8">
+  <span>0.0069</span><small>-34.9%</small>
+</button><button class="heat-cell" data-variant="rule_attention_bias" data-dataset="Toys_and_Games" style="--intensity:0.359;--mix:26.9%;--accent:#18B8A6">
+  <span>0.0070</span><small>-34.0%</small>
+</button><button class="heat-cell winner" data-variant="mamba_context_token" data-dataset="Toys_and_Games" style="--intensity:0.359;--mix:26.9%;--accent:#F59E0B">
+  <span>0.0070</span><small>-34.0%</small>
+</button><button class="heat-cell" data-variant="gated_fusion_full" data-dataset="Toys_and_Games" style="--intensity:0.236;--mix:17.7%;--accent:#EC4899">
+  <span>0.0046</span><small>-56.6%</small>
+</button><div class="heat-label dataset">Video_Games</div><button class="heat-cell" data-variant="transformer_only" data-dataset="Video_Games" style="--intensity:0.872;--mix:65.4%;--accent:#7C8CF8">
+  <span>0.0170</span><small>-39.1%</small>
+</button><button class="heat-cell" data-variant="rule_attention_bias" data-dataset="Video_Games" style="--intensity:0.897;--mix:67.3%;--accent:#18B8A6">
+  <span>0.0175</span><small>-37.3%</small>
+</button><button class="heat-cell winner" data-variant="mamba_context_token" data-dataset="Video_Games" style="--intensity:1.000;--mix:75.0%;--accent:#F59E0B">
+  <span>0.0195</span><small>-30.1%</small>
+</button><button class="heat-cell" data-variant="gated_fusion_full" data-dataset="Video_Games" style="--intensity:0.928;--mix:69.6%;--accent:#EC4899">
+  <span>0.0181</span><small>-35.1%</small>
+</button>
+  </div>
+  <div class="table-shell">
+    <table id="resultTable"><thead><tr><th>Dataset</th><th>Variant</th><th>NDCG@10</th><th>HR@10</th><th>FutureNDCG@10</th><th>ΔNDCG</th><th>Selected config</th></tr></thead><tbody><tr data-variant="gated_fusion_full" data-dataset="Arts_Crafts_and_Sewing">
+<td>Arts_Crafts_and_Sewing</td>
+<td><span class="dot" style="--accent:#EC4899"></span>Gated fusion full</td>
+<td>0.0056</td>
+<td>0.0098</td>
+<td>0.0050</td>
+<td class="delta neg">-50.9%</td>
+<td><code>i128_bias_context_gate_bias1</code></td>
+</tr><tr data-variant="mamba_context_token" data-dataset="Arts_Crafts_and_Sewing">
+<td>Arts_Crafts_and_Sewing</td>
+<td><span class="dot" style="--accent:#F59E0B"></span>Mamba context token</td>
+<td>0.0095</td>
+<td>0.0188</td>
+<td>0.0116</td>
+<td class="delta neg">-16.7%</td>
+<td><code>i128_bias_context_gate_bias1</code></td>
+</tr><tr data-variant="rule_attention_bias" data-dataset="Arts_Crafts_and_Sewing">
+<td>Arts_Crafts_and_Sewing</td>
+<td><span class="dot" style="--accent:#18B8A6"></span>Rule attention bias</td>
+<td>0.0097</td>
+<td>0.0195</td>
+<td>0.0117</td>
+<td class="delta neg">-14.9%</td>
+<td><code>i128_bias_context_gate_bias1</code></td>
+</tr><tr data-variant="transformer_only" data-dataset="Arts_Crafts_and_Sewing">
+<td>Arts_Crafts_and_Sewing</td>
+<td><span class="dot" style="--accent:#7C8CF8"></span>Transformer only</td>
+<td>0.0098</td>
+<td>0.0194</td>
+<td>0.0117</td>
+<td class="delta neg">-14.0%</td>
+<td><code>i128_bias_context_gate_bias1</code></td>
+</tr><tr data-variant="gated_fusion_full" data-dataset="CDs_and_Vinyl">
+<td>CDs_and_Vinyl</td>
+<td><span class="dot" style="--accent:#EC4899"></span>Gated fusion full</td>
+<td>0.0119</td>
+<td>0.0204</td>
+<td>0.0106</td>
+<td class="delta neg">-58.2%</td>
+<td><code>i128_bias_context_gate_bias1</code></td>
+</tr><tr data-variant="mamba_context_token" data-dataset="CDs_and_Vinyl">
+<td>CDs_and_Vinyl</td>
+<td><span class="dot" style="--accent:#F59E0B"></span>Mamba context token</td>
+<td>0.0070</td>
+<td>0.0147</td>
+<td>0.0068</td>
+<td class="delta neg">-75.4%</td>
+<td><code>i128_bias_context_gate_bias1</code></td>
+</tr><tr data-variant="rule_attention_bias" data-dataset="CDs_and_Vinyl">
+<td>CDs_and_Vinyl</td>
+<td><span class="dot" style="--accent:#18B8A6"></span>Rule attention bias</td>
+<td>0.0085</td>
+<td>0.0181</td>
+<td>0.0068</td>
+<td class="delta neg">-70.2%</td>
+<td><code>i128_bias_context_gate_bias1</code></td>
+</tr><tr data-variant="transformer_only" data-dataset="CDs_and_Vinyl">
+<td>CDs_and_Vinyl</td>
+<td><span class="dot" style="--accent:#7C8CF8"></span>Transformer only</td>
+<td>0.0083</td>
+<td>0.0179</td>
+<td>0.0068</td>
+<td class="delta neg">-70.9%</td>
+<td><code>i128_bias_context_gate_bias1</code></td>
+</tr><tr data-variant="gated_fusion_full" data-dataset="Grocery_and_Gourmet_Food">
+<td>Grocery_and_Gourmet_Food</td>
+<td><span class="dot" style="--accent:#EC4899"></span>Gated fusion full</td>
+<td>0.0066</td>
+<td>0.0125</td>
+<td>0.0072</td>
+<td class="delta neg">-44.1%</td>
+<td><code>i128_bias_context_gate_bias1</code></td>
+</tr><tr data-variant="mamba_context_token" data-dataset="Grocery_and_Gourmet_Food">
+<td>Grocery_and_Gourmet_Food</td>
+<td><span class="dot" style="--accent:#F59E0B"></span>Mamba context token</td>
+<td>0.0094</td>
+<td>0.0187</td>
+<td>0.0107</td>
+<td class="delta neg">-20.3%</td>
+<td><code>i128_bias_context_gate_bias1</code></td>
+</tr><tr data-variant="rule_attention_bias" data-dataset="Grocery_and_Gourmet_Food">
+<td>Grocery_and_Gourmet_Food</td>
+<td><span class="dot" style="--accent:#18B8A6"></span>Rule attention bias</td>
+<td>0.0094</td>
+<td>0.0187</td>
+<td>0.0112</td>
+<td class="delta neg">-20.3%</td>
+<td><code>i128_bias_context_gate_bias1</code></td>
+</tr><tr data-variant="transformer_only" data-dataset="Grocery_and_Gourmet_Food">
+<td>Grocery_and_Gourmet_Food</td>
+<td><span class="dot" style="--accent:#7C8CF8"></span>Transformer only</td>
+<td>0.0093</td>
+<td>0.0185</td>
+<td>0.0111</td>
+<td class="delta neg">-21.2%</td>
+<td><code>i128_bias_context_gate_bias1</code></td>
+</tr><tr data-variant="gated_fusion_full" data-dataset="Musical_Instruments">
+<td>Musical_Instruments</td>
+<td><span class="dot" style="--accent:#EC4899"></span>Gated fusion full</td>
+<td>0.0106</td>
+<td>0.0195</td>
+<td>0.0137</td>
+<td class="delta neg">-15.2%</td>
+<td><code>i64_bias_context_gate_bias1</code></td>
+</tr><tr data-variant="mamba_context_token" data-dataset="Musical_Instruments">
+<td>Musical_Instruments</td>
+<td><span class="dot" style="--accent:#F59E0B"></span>Mamba context token</td>
+<td>0.0115</td>
+<td>0.0221</td>
+<td>0.0151</td>
+<td class="delta neg">-8.0%</td>
+<td><code>i64_bias_context_gate_bias1</code></td>
+</tr><tr data-variant="rule_attention_bias" data-dataset="Musical_Instruments">
+<td>Musical_Instruments</td>
+<td><span class="dot" style="--accent:#18B8A6"></span>Rule attention bias</td>
+<td>0.0112</td>
+<td>0.0217</td>
+<td>0.0148</td>
+<td class="delta neg">-10.4%</td>
+<td><code>i128_bias_context_gate_bias1</code></td>
+</tr><tr data-variant="transformer_only" data-dataset="Musical_Instruments">
+<td>Musical_Instruments</td>
+<td><span class="dot" style="--accent:#7C8CF8"></span>Transformer only</td>
+<td>0.0112</td>
+<td>0.0218</td>
+<td>0.0149</td>
+<td class="delta neg">-10.4%</td>
+<td><code>i128_bias_context_gate_bias1</code></td>
+</tr><tr data-variant="gated_fusion_full" data-dataset="Office_Products">
+<td>Office_Products</td>
+<td><span class="dot" style="--accent:#EC4899"></span>Gated fusion full</td>
+<td>0.0091</td>
+<td>0.0150</td>
+<td>0.0101</td>
+<td class="delta neg">-30.5%</td>
+<td><code>i128_bias_context_gate_bias1</code></td>
+</tr><tr data-variant="mamba_context_token" data-dataset="Office_Products">
+<td>Office_Products</td>
+<td><span class="dot" style="--accent:#F59E0B"></span>Mamba context token</td>
+<td>0.0102</td>
+<td>0.0194</td>
+<td>0.0132</td>
+<td class="delta neg">-22.1%</td>
+<td><code>i128_bias_context_gate_bias1</code></td>
+</tr><tr data-variant="rule_attention_bias" data-dataset="Office_Products">
+<td>Office_Products</td>
+<td><span class="dot" style="--accent:#18B8A6"></span>Rule attention bias</td>
+<td>0.0103</td>
+<td>0.0192</td>
+<td>0.0138</td>
+<td class="delta neg">-21.4%</td>
+<td><code>i128_bias_context_gate_bias1</code></td>
+</tr><tr data-variant="transformer_only" data-dataset="Office_Products">
+<td>Office_Products</td>
+<td><span class="dot" style="--accent:#7C8CF8"></span>Transformer only</td>
+<td>0.0101</td>
+<td>0.0191</td>
+<td>0.0137</td>
+<td class="delta neg">-22.9%</td>
+<td><code>i128_bias_context_gate_bias1</code></td>
+</tr><tr data-variant="gated_fusion_full" data-dataset="Toys_and_Games">
+<td>Toys_and_Games</td>
+<td><span class="dot" style="--accent:#EC4899"></span>Gated fusion full</td>
+<td>0.0046</td>
+<td>0.0078</td>
+<td>0.0052</td>
+<td class="delta neg">-56.6%</td>
+<td><code>i128_bias_context_gate_bias1</code></td>
+</tr><tr data-variant="mamba_context_token" data-dataset="Toys_and_Games">
+<td>Toys_and_Games</td>
+<td><span class="dot" style="--accent:#F59E0B"></span>Mamba context token</td>
+<td>0.0070</td>
+<td>0.0135</td>
+<td>0.0094</td>
+<td class="delta neg">-34.0%</td>
+<td><code>i128_bias_context_gate_bias1</code></td>
+</tr><tr data-variant="rule_attention_bias" data-dataset="Toys_and_Games">
+<td>Toys_and_Games</td>
+<td><span class="dot" style="--accent:#18B8A6"></span>Rule attention bias</td>
+<td>0.0070</td>
+<td>0.0133</td>
+<td>0.0087</td>
+<td class="delta neg">-34.0%</td>
+<td><code>i128_bias_context_gate_bias1</code></td>
+</tr><tr data-variant="transformer_only" data-dataset="Toys_and_Games">
+<td>Toys_and_Games</td>
+<td><span class="dot" style="--accent:#7C8CF8"></span>Transformer only</td>
+<td>0.0069</td>
+<td>0.0132</td>
+<td>0.0085</td>
+<td class="delta neg">-34.9%</td>
+<td><code>i128_bias_context_gate_bias1</code></td>
+</tr><tr data-variant="gated_fusion_full" data-dataset="Video_Games">
+<td>Video_Games</td>
+<td><span class="dot" style="--accent:#EC4899"></span>Gated fusion full</td>
+<td>0.0181</td>
+<td>0.0354</td>
+<td>0.0213</td>
+<td class="delta neg">-35.1%</td>
+<td><code>i128_bias_context_gate_bias1</code></td>
+</tr><tr data-variant="mamba_context_token" data-dataset="Video_Games">
+<td>Video_Games</td>
+<td><span class="dot" style="--accent:#F59E0B"></span>Mamba context token</td>
+<td>0.0195</td>
+<td>0.0372</td>
+<td>0.0194</td>
+<td class="delta neg">-30.1%</td>
+<td><code>i64_bias_context_gate_bias1</code></td>
+</tr><tr data-variant="rule_attention_bias" data-dataset="Video_Games">
+<td>Video_Games</td>
+<td><span class="dot" style="--accent:#18B8A6"></span>Rule attention bias</td>
+<td>0.0175</td>
+<td>0.0351</td>
+<td>0.0217</td>
+<td class="delta neg">-37.3%</td>
+<td><code>i128_bias_context_gate_bias1</code></td>
+</tr><tr data-variant="transformer_only" data-dataset="Video_Games">
+<td>Video_Games</td>
+<td><span class="dot" style="--accent:#7C8CF8"></span>Transformer only</td>
+<td>0.0170</td>
+<td>0.0339</td>
+<td>0.0210</td>
+<td class="delta neg">-39.1%</td>
+<td><code>i128_bias_context_gate_bias1</code></td>
+</tr></tbody></table>
+  </div>
+</section>
+
+<section class="panel reveal">
+  <div class="section-head"><span>07</span><h2>结论：结构修复有效，但 full fusion 仍需谨慎</h2></div>
+  <div class="insight-grid">
+    <article><strong>Mamba context token</strong><p>在 3/7 数据集按 NDCG@10 胜出，说明 context-token 位置比 residual branch 更合理。</p></article>
+    <article><strong>Rule attention bias</strong><p>在 2/7 数据集胜出，规则 prior 作为 bias 比并联 embedding branch 更稳。</p></article>
+    <article><strong>Gated fusion full</strong><p>只在 CDs_and_Vinyl 胜出，说明 full 结构仍可能过拟合或 gate 学习不足。</p></article>
+  </div>
+</section>
+
+<section id="mancar-native-ablation" class="panel reveal deep-dive">
+  <div class="section-head"><span>08</span><h2>新增实验：把 attention bias / Mamba 迁移回原始 ManCAR</h2></div>
+  <p class="lede-strong">前面的 Scheme-I GPU-main 实验是在 <code>clwm_rec</code> 的结构化 hybrid scaffold 上验证 rule prior、Mamba context token、Transformer attention 和 gated fusion 的不同接法。当天我们追加了一个更贴近最终落地的问题：这些机制能不能不再停留在 scaffold 里，而是直接迁移进原始 <code>ManCAR</code> 主路径，并用 CLI flags 做同一个 7 个数据集 × 4 组开关的消融实验。</p>
+
+  <div class="story-callout">
+    <strong>一句话：</strong>这次新增实验不是重新发明一个模型，而是把两个机制接进原 ManCAR：<code>attention_bias</code> 是 Transformer attention-score bias，<code>mamba</code> 是结构性 context token；默认全关时仍是 ManCAR baseline。
+  </div>
+
+  <div class="explain-grid three">
+    <article class="explain-card">
+      <b>为什么要做这个实验</b>
+      <p>Scheme-I scaffold 证明结构方向有信号，但最终要回答的是“原 ManCAR 能不能直接支持这些机制”。所以这次实验固定原 ManCAR runner、数据集和训练流程，只切换两个新机制开关。</p>
+      <pre class="formula-block">baseline = ManCAR(attention_bias=0, mamba=0)
+ablation = same ManCAR + optional mechanisms</pre>
+    </article>
+    <article class="explain-card">
+      <b>attention_bias 接在哪里</b>
+      <p>它不是 item-logit sparse bias，而是在 ManCAR Transformer 内部，把 Swing prompt prior 转成有限 additive score bias，并在 softmax 前加到 attention scores 上。</p>
+      <pre class="formula-block">scores = QK^T / sqrt(d)
+scores += padding_or_causal_mask
+scores += λ · swing_attention_bias</pre>
+    </article>
+    <article class="explain-card">
+      <b>Mamba 接在哪里</b>
+      <p>它不是额外并联分支，而是用本地 SSM/Mamba-style block 从历史 item embedding 生成一个 context token，再把它 prepend 到 ManCAR 的 Transformer 输入前缀里。</p>
+      <pre class="formula-block">context = MambaSSM(history_embeddings)
+tokens = [context] + prompt_tokens + history_tokens</pre>
+    </article>
+  </div>
+
+  <div class="story-grid">
+    <article><span>1 · 需求澄清</span><b>先锁语义</b><p>当天先明确两个机制都要迁移进原 ManCAR；<code>attention_bias</code> 必须是 Transformer attention-score bias，<code>mamba</code> 必须是 context-token 注入。</p></article>
+    <article><span>2 · 实现方式</span><b>只用 CLI flags 开关</b><p>新增 <code>--attention_bias</code>、<code>--attention_bias_weight</code>、<code>--mamba</code>、<code>--mamba_kernel</code>，默认值保持 off/off。</p></article>
+    <article><span>3 · 安全检查</span><b>先跑小验证</b><p>覆盖 parser defaults、zero-bias equivalence、KV-cache slicing、float additive mask、context token 不进入 prompt_latent 等行为。</p></article>
+    <article><span>4 · 主实验</span><b>跑 main7×4</b><p>7 个 Amazon 数据集 × 4 组开关，共 28 个 ManCAR 训练/评估 cell；每个 cell 产出同一 run tag 下的确定性日志。</p></article>
+    <article><span>5 · 结果口径</span><b>完成优先，不夸大性能</b><p>验收标准是 28/28 完整产出和可解析报告；这轮结果只说明迁移成功和局部信号，不声明机制稳定优于 baseline。</p></article>
+  </div>
+
+  <div class="dashboard">
+    <div class="chart-card">
+      <h3>新增实验运行配置</h3>
+      <ul class="compact-list">
+        <li>Run tag: <code>mancar_attn_mamba_20260624T160541Z</code></li>
+        <li>Settings: <code>baseline</code>, <code>attention_bias</code>, <code>mamba</code>, <code>attention_bias_mamba</code></li>
+        <li>Batch: <code>batch_size=512</code>, <code>eval_batch_size=1024</code></li>
+        <li>Training: <code>epoch=200</code>, <code>early_stop=5</code>, <code>reason_step=5</code></li>
+        <li>Mechanism params: <code>attention_bias_weight=0.1</code>, <code>mamba_kernel=3</code></li>
+        <li>Slurm: main array <code>368243</code>, retry <code>368271_15</code>, collector <code>368272</code></li>
+      </ul>
+    </div>
+    <div class="chart-card">
+      <h3>新增实验核心读数</h3>
+      <div class="bars">
+        <div class="bar-row reveal" data-variant="baseline">
+          <span>NDCG@10 winner: baseline</span>
+          <div class="bar-track"><i style="--w:57.1%;--accent:#7C8CF8"></i></div>
+          <b>4/7</b>
+        </div>
+        <div class="bar-row reveal" data-variant="attention_bias_mamba">
+          <span>HR@10 winner: new mechanisms</span>
+          <div class="bar-track"><i style="--w:85.7%;--accent:#18B8A6"></i></div>
+          <b>6/7</b>
+        </div>
+        <div class="bar-row reveal" data-variant="mancar-complete">
+          <span>Completed cells</span>
+          <div class="bar-track"><i style="--w:100%;--accent:#F59E0B"></i></div>
+          <b>28/28</b>
+        </div>
+      </div>
+      <p class="muted small">NDCG@10 更看排序位置；HR@10 更看目标是否进入 Top-10。因此这轮出现了“召回信号更明显，但排序质量未稳定提升”的结果。</p>
+    </div>
+  </div>
+
+  <div class="insight-grid">
+    <article><strong>NDCG@10 结论</strong><p>baseline 在 4/7 数据集仍是最高：CDs_and_Vinyl、Video_Games、Office_Products、Musical_Instruments。新机制在 Arts、Toys、Grocery 上拿到最高或并列最高。</p></article>
+    <article><strong>HR@10 结论</strong><p>新机制在 6/7 数据集拿到最高 HR@10，说明 attention_bias / Mamba 更容易把 target item 推进 Top-10，但不一定把它排得更靠前。</p></article>
+    <article><strong>工程结论</strong><p>迁移是成功的：四组开关都能训练、评估、收集日志和生成 28 行报告；task 15 的端口冲突已用补交任务覆盖，不影响最终 run tag 结果。</p></article>
+  </div>
+
+  <div class="table-shell">
+    <table>
+      <thead><tr><th>Dataset</th><th>Best NDCG@10 setting</th><th>Best NDCG@10</th><th>Best HR@10 setting</th><th>Best HR@10</th><th>Interpretation</th></tr></thead>
+      <tbody>
+        <tr><td>CDs_and_Vinyl</td><td>baseline</td><td>0.0274</td><td>attention_bias_mamba</td><td>0.0521</td><td>NDCG 基本持平，组合机制提升 Top-10 命中。</td></tr>
+        <tr><td>Video_Games</td><td>baseline</td><td>0.0262</td><td>mamba</td><td>0.0509</td><td>Mamba 改善 HR，但排序位置不如 baseline。</td></tr>
+        <tr><td>Office_Products</td><td>baseline</td><td>0.0141</td><td>attention_bias</td><td>0.0241</td><td>attention bias 有召回信号，NDCG 未超过 baseline。</td></tr>
+        <tr><td>Arts_Crafts_and_Sewing</td><td>attention_bias_mamba</td><td>0.0103</td><td>attention_bias_mamba</td><td>0.0194</td><td>组合机制同时拿到 NDCG 和 HR 最好。</td></tr>
+        <tr><td>Musical_Instruments</td><td>baseline</td><td>0.0127</td><td>baseline</td><td>0.0245</td><td>新机制没有收益，组合机制反而下降。</td></tr>
+        <tr><td>Toys_and_Games</td><td>mamba</td><td>0.0105</td><td>mamba</td><td>0.0196</td><td>Mamba 单独开启最好，说明 context token 有局部价值。</td></tr>
+        <tr><td>Grocery_and_Gourmet_Food</td><td>attention_bias / attention_bias_mamba</td><td>0.0117</td><td>attention_bias_mamba</td><td>0.0220</td><td>attention bias 是主要增益来源，组合略改善 HR。</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="table-shell">
+    <table>
+      <thead><tr><th>Dataset</th><th>Setting</th><th>NDCG@10</th><th>HR@10</th><th>MRR@10</th><th>Status</th></tr></thead>
+      <tbody>
+        <tr><td>CDs_and_Vinyl</td><td>baseline</td><td>0.0274</td><td>0.0502</td><td>0.0204</td><td>complete</td></tr>
+        <tr><td>CDs_and_Vinyl</td><td>attention_bias</td><td>0.0269</td><td>0.0504</td><td>0.0197</td><td>complete</td></tr>
+        <tr><td>CDs_and_Vinyl</td><td>mamba</td><td>0.0263</td><td>0.0516</td><td>0.0186</td><td>complete</td></tr>
+        <tr><td>CDs_and_Vinyl</td><td>attention_bias_mamba</td><td>0.0273</td><td>0.0521</td><td>0.0198</td><td>complete</td></tr>
+        <tr><td>Video_Games</td><td>baseline</td><td>0.0262</td><td>0.0503</td><td>0.0188</td><td>complete</td></tr>
+        <tr><td>Video_Games</td><td>attention_bias</td><td>0.0253</td><td>0.0482</td><td>0.0183</td><td>complete</td></tr>
+        <tr><td>Video_Games</td><td>mamba</td><td>0.0257</td><td>0.0509</td><td>0.0180</td><td>complete</td></tr>
+        <tr><td>Video_Games</td><td>attention_bias_mamba</td><td>0.0257</td><td>0.0488</td><td>0.0186</td><td>complete</td></tr>
+        <tr><td>Office_Products</td><td>baseline</td><td>0.0141</td><td>0.0238</td><td>0.0112</td><td>complete</td></tr>
+        <tr><td>Office_Products</td><td>attention_bias</td><td>0.0140</td><td>0.0241</td><td>0.0109</td><td>complete</td></tr>
+        <tr><td>Office_Products</td><td>mamba</td><td>0.0132</td><td>0.0230</td><td>0.0101</td><td>complete</td></tr>
+        <tr><td>Office_Products</td><td>attention_bias_mamba</td><td>0.0137</td><td>0.0232</td><td>0.0108</td><td>complete</td></tr>
+        <tr><td>Arts_Crafts_and_Sewing</td><td>baseline</td><td>0.0099</td><td>0.0193</td><td>0.0071</td><td>complete</td></tr>
+        <tr><td>Arts_Crafts_and_Sewing</td><td>attention_bias</td><td>0.0097</td><td>0.0192</td><td>0.0068</td><td>complete</td></tr>
+        <tr><td>Arts_Crafts_and_Sewing</td><td>mamba</td><td>0.0098</td><td>0.0189</td><td>0.0071</td><td>complete</td></tr>
+        <tr><td>Arts_Crafts_and_Sewing</td><td>attention_bias_mamba</td><td>0.0103</td><td>0.0194</td><td>0.0075</td><td>complete</td></tr>
+        <tr><td>Musical_Instruments</td><td>baseline</td><td>0.0127</td><td>0.0245</td><td>0.0091</td><td>complete</td></tr>
+        <tr><td>Musical_Instruments</td><td>attention_bias</td><td>0.0126</td><td>0.0237</td><td>0.0092</td><td>complete</td></tr>
+        <tr><td>Musical_Instruments</td><td>mamba</td><td>0.0121</td><td>0.0232</td><td>0.0088</td><td>complete</td></tr>
+        <tr><td>Musical_Instruments</td><td>attention_bias_mamba</td><td>0.0114</td><td>0.0224</td><td>0.0081</td><td>complete</td></tr>
+        <tr><td>Toys_and_Games</td><td>baseline</td><td>0.0103</td><td>0.0192</td><td>0.0076</td><td>complete</td></tr>
+        <tr><td>Toys_and_Games</td><td>attention_bias</td><td>0.0102</td><td>0.0192</td><td>0.0074</td><td>complete</td></tr>
+        <tr><td>Toys_and_Games</td><td>mamba</td><td>0.0105</td><td>0.0196</td><td>0.0077</td><td>complete</td></tr>
+        <tr><td>Toys_and_Games</td><td>attention_bias_mamba</td><td>0.0101</td><td>0.0193</td><td>0.0073</td><td>complete</td></tr>
+        <tr><td>Grocery_and_Gourmet_Food</td><td>baseline</td><td>0.0114</td><td>0.0215</td><td>0.0083</td><td>complete</td></tr>
+        <tr><td>Grocery_and_Gourmet_Food</td><td>attention_bias</td><td>0.0117</td><td>0.0219</td><td>0.0085</td><td>complete</td></tr>
+        <tr><td>Grocery_and_Gourmet_Food</td><td>mamba</td><td>0.0115</td><td>0.0215</td><td>0.0085</td><td>complete</td></tr>
+        <tr><td>Grocery_and_Gourmet_Food</td><td>attention_bias_mamba</td><td>0.0117</td><td>0.0220</td><td>0.0086</td><td>complete</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="callout-wide">
+    <strong>新增实验结论：</strong>
+    ManCAR 原生迁移已经完成，28/28 cell 全部产出结果。结果支持“机制可以稳定接入原 ManCAR，并在部分数据集带来召回或排序信号”，但不支持“attention_bias / Mamba 已经稳定全面超过 baseline”。下一步应围绕 <code>attention_bias_weight</code>、context token 注入强度/位置、多 seed 稳定性做进一步实验。
+  </div>
+</section>
+
+<section id="evidence" class="panel reveal evidence">
+  <div class="section-head"><span>09</span><h2>证据与复现路径</h2></div>
+  <ul>
+    <li>Source JSON: <code>reproduction_evidence/scheme_i_structural_hybrid_gpu_main_results.json</code></li>
+    <li>Markdown report: <code>reproduction_evidence/scheme_i_structural_hybrid_gpu_main_report.md</code></li>
+    <li>Output root: <code>.omx/ultragoal/scheme_i_structural_hybrid_gpu_main</code></li>
+    <li>Validation: <code>all7x4_validated_complete=true</code>, <code>validated_final_artifacts=28</code>, <code>errors=[]</code></li>
+    <li>New ManCAR native ablation report: <code>reproduction_evidence/mancar_attention_mamba_ablation_report.md</code></li>
+    <li>New ManCAR native ablation source JSON: <code>reproduction_evidence/mancar_attention_mamba_ablation_results.json</code></li>
+    <li>New ManCAR validation: <code>run_tag=mancar_attn_mamba_20260624T160541Z</code>, <code>complete_rows=28/28</code>, <code>batch_size=512</code>, <code>eval_batch_size=1024</code></li>
+  </ul>
+</section>
+</main>
+<script id="scheme-i-data" type="application/json">[{&quot;key&quot;: &quot;Arts_Crafts_and_Sewing/gated_fusion_full&quot;, &quot;dataset&quot;: &quot;Arts_Crafts_and_Sewing&quot;, &quot;variant&quot;: &quot;gated_fusion_full&quot;, &quot;variantLabel&quot;: &quot;Gated fusion full&quot;, &quot;color&quot;: &quot;#EC4899&quot;, &quot;ndcg10&quot;: 0.0056, &quot;hr10&quot;: 0.0098, &quot;futureNdcg10&quot;: 0.005, &quot;deltaNdcg10&quot;: -0.508772, &quot;deltaHr10&quot;: -0.5625, &quot;selectedConfig&quot;: &quot;i128_bias_context_gate_bias1&quot;, &quot;resultPath&quot;: &quot;.omx/ultragoal/scheme_i_structural_hybrid_gpu_main/Arts_Crafts_and_Sewing/gated_fusion_full/final/i128_bias_context_gate_bias1/result.json&quot;}, {&quot;key&quot;: &quot;Arts_Crafts_and_Sewing/mamba_context_token&quot;, &quot;dataset&quot;: &quot;Arts_Crafts_and_Sewing&quot;, &quot;variant&quot;: &quot;mamba_context_token&quot;, &quot;variantLabel&quot;: &quot;Mamba context token&quot;, &quot;color&quot;: &quot;#F59E0B&quot;, &quot;ndcg10&quot;: 0.0095, &quot;hr10&quot;: 0.0188, &quot;futureNdcg10&quot;: 0.0116, &quot;deltaNdcg10&quot;: -0.166667, &quot;deltaHr10&quot;: -0.160714, &quot;selectedConfig&quot;: &quot;i128_bias_context_gate_bias1&quot;, &quot;resultPath&quot;: &quot;.omx/ultragoal/scheme_i_structural_hybrid_gpu_main/Arts_Crafts_and_Sewing/mamba_context_token/final/i128_bias_context_gate_bias1/result.json&quot;}, {&quot;key&quot;: &quot;Arts_Crafts_and_Sewing/rule_attention_bias&quot;, &quot;dataset&quot;: &quot;Arts_Crafts_and_Sewing&quot;, &quot;variant&quot;: &quot;rule_attention_bias&quot;, &quot;variantLabel&quot;: &quot;Rule attention bias&quot;, &quot;color&quot;: &quot;#18B8A6&quot;, &quot;ndcg10&quot;: 0.0097, &quot;hr10&quot;: 0.0195, &quot;futureNdcg10&quot;: 0.0117, &quot;deltaNdcg10&quot;: -0.149123, &quot;deltaHr10&quot;: -0.129464, &quot;selectedConfig&quot;: &quot;i128_bias_context_gate_bias1&quot;, &quot;resultPath&quot;: &quot;.omx/ultragoal/scheme_i_structural_hybrid_gpu_main/Arts_Crafts_and_Sewing/rule_attention_bias/final/i128_bias_context_gate_bias1/result.json&quot;}, {&quot;key&quot;: &quot;Arts_Crafts_and_Sewing/transformer_only&quot;, &quot;dataset&quot;: &quot;Arts_Crafts_and_Sewing&quot;, &quot;variant&quot;: &quot;transformer_only&quot;, &quot;variantLabel&quot;: &quot;Transformer only&quot;, &quot;color&quot;: &quot;#7C8CF8&quot;, &quot;ndcg10&quot;: 0.0098, &quot;hr10&quot;: 0.0194, &quot;futureNdcg10&quot;: 0.0117, &quot;deltaNdcg10&quot;: -0.140351, &quot;deltaHr10&quot;: -0.133929, &quot;selectedConfig&quot;: &quot;i128_bias_context_gate_bias1&quot;, &quot;resultPath&quot;: &quot;.omx/ultragoal/scheme_i_structural_hybrid_gpu_main/Arts_Crafts_and_Sewing/transformer_only/final/i128_bias_context_gate_bias1/result.json&quot;}, {&quot;key&quot;: &quot;CDs_and_Vinyl/gated_fusion_full&quot;, &quot;dataset&quot;: &quot;CDs_and_Vinyl&quot;, &quot;variant&quot;: &quot;gated_fusion_full&quot;, &quot;variantLabel&quot;: &quot;Gated fusion full&quot;, &quot;color&quot;: &quot;#EC4899&quot;, &quot;ndcg10&quot;: 0.0119, &quot;hr10&quot;: 0.0204, &quot;futureNdcg10&quot;: 0.0106, &quot;deltaNdcg10&quot;: -0.582456, &quot;deltaHr10&quot;: -0.615094, &quot;selectedConfig&quot;: &quot;i128_bias_context_gate_bias1&quot;, &quot;resultPath&quot;: &quot;.omx/ultragoal/scheme_i_structural_hybrid_gpu_main/CDs_and_Vinyl/gated_fusion_full/final/i128_bias_context_gate_bias1/result.json&quot;}, {&quot;key&quot;: &quot;CDs_and_Vinyl/mamba_context_token&quot;, &quot;dataset&quot;: &quot;CDs_and_Vinyl&quot;, &quot;variant&quot;: &quot;mamba_context_token&quot;, &quot;variantLabel&quot;: &quot;Mamba context token&quot;, &quot;color&quot;: &quot;#F59E0B&quot;, &quot;ndcg10&quot;: 0.007, &quot;hr10&quot;: 0.0147, &quot;futureNdcg10&quot;: 0.0068, &quot;deltaNdcg10&quot;: -0.754386, &quot;deltaHr10&quot;: -0.722642, &quot;selectedConfig&quot;: &quot;i128_bias_context_gate_bias1&quot;, &quot;resultPath&quot;: &quot;.omx/ultragoal/scheme_i_structural_hybrid_gpu_main/CDs_and_Vinyl/mamba_context_token/final/i128_bias_context_gate_bias1/result.json&quot;}, {&quot;key&quot;: &quot;CDs_and_Vinyl/rule_attention_bias&quot;, &quot;dataset&quot;: &quot;CDs_and_Vinyl&quot;, &quot;variant&quot;: &quot;rule_attention_bias&quot;, &quot;variantLabel&quot;: &quot;Rule attention bias&quot;, &quot;color&quot;: &quot;#18B8A6&quot;, &quot;ndcg10&quot;: 0.0085, &quot;hr10&quot;: 0.0181, &quot;futureNdcg10&quot;: 0.0068, &quot;deltaNdcg10&quot;: -0.701754, &quot;deltaHr10&quot;: -0.658491, &quot;selectedConfig&quot;: &quot;i128_bias_context_gate_bias1&quot;, &quot;resultPath&quot;: &quot;.omx/ultragoal/scheme_i_structural_hybrid_gpu_main/CDs_and_Vinyl/rule_attention_bias/final/i128_bias_context_gate_bias1/result.json&quot;}, {&quot;key&quot;: &quot;CDs_and_Vinyl/transformer_only&quot;, &quot;dataset&quot;: &quot;CDs_and_Vinyl&quot;, &quot;variant&quot;: &quot;transformer_only&quot;, &quot;variantLabel&quot;: &quot;Transformer only&quot;, &quot;color&quot;: &quot;#7C8CF8&quot;, &quot;ndcg10&quot;: 0.0083, &quot;hr10&quot;: 0.0179, &quot;futureNdcg10&quot;: 0.0068, &quot;deltaNdcg10&quot;: -0.708772, &quot;deltaHr10&quot;: -0.662264, &quot;selectedConfig&quot;: &quot;i128_bias_context_gate_bias1&quot;, &quot;resultPath&quot;: &quot;.omx/ultragoal/scheme_i_structural_hybrid_gpu_main/CDs_and_Vinyl/transformer_only/final/i128_bias_context_gate_bias1/result.json&quot;}, {&quot;key&quot;: &quot;Grocery_and_Gourmet_Food/gated_fusion_full&quot;, &quot;dataset&quot;: &quot;Grocery_and_Gourmet_Food&quot;, &quot;variant&quot;: &quot;gated_fusion_full&quot;, &quot;variantLabel&quot;: &quot;Gated fusion full&quot;, &quot;color&quot;: &quot;#EC4899&quot;, &quot;ndcg10&quot;: 0.0066, &quot;hr10&quot;: 0.0125, &quot;futureNdcg10&quot;: 0.0072, &quot;deltaNdcg10&quot;: -0.440678, &quot;deltaHr10&quot;: -0.426606, &quot;selectedConfig&quot;: &quot;i128_bias_context_gate_bias1&quot;, &quot;resultPath&quot;: &quot;.omx/ultragoal/scheme_i_structural_hybrid_gpu_main/Grocery_and_Gourmet_Food/gated_fusion_full/final/i128_bias_context_gate_bias1/result.json&quot;}, {&quot;key&quot;: &quot;Grocery_and_Gourmet_Food/mamba_context_token&quot;, &quot;dataset&quot;: &quot;Grocery_and_Gourmet_Food&quot;, &quot;variant&quot;: &quot;mamba_context_token&quot;, &quot;variantLabel&quot;: &quot;Mamba context token&quot;, &quot;color&quot;: &quot;#F59E0B&quot;, &quot;ndcg10&quot;: 0.0094, &quot;hr10&quot;: 0.0187, &quot;futureNdcg10&quot;: 0.0107, &quot;deltaNdcg10&quot;: -0.20339, &quot;deltaHr10&quot;: -0.142202, &quot;selectedConfig&quot;: &quot;i128_bias_context_gate_bias1&quot;, &quot;resultPath&quot;: &quot;.omx/ultragoal/scheme_i_structural_hybrid_gpu_main/Grocery_and_Gourmet_Food/mamba_context_token/final/i128_bias_context_gate_bias1/result.json&quot;}, {&quot;key&quot;: &quot;Grocery_and_Gourmet_Food/rule_attention_bias&quot;, &quot;dataset&quot;: &quot;Grocery_and_Gourmet_Food&quot;, &quot;variant&quot;: &quot;rule_attention_bias&quot;, &quot;variantLabel&quot;: &quot;Rule attention bias&quot;, &quot;color&quot;: &quot;#18B8A6&quot;, &quot;ndcg10&quot;: 0.0094, &quot;hr10&quot;: 0.0187, &quot;futureNdcg10&quot;: 0.0112, &quot;deltaNdcg10&quot;: -0.20339, &quot;deltaHr10&quot;: -0.142202, &quot;selectedConfig&quot;: &quot;i128_bias_context_gate_bias1&quot;, &quot;resultPath&quot;: &quot;.omx/ultragoal/scheme_i_structural_hybrid_gpu_main/Grocery_and_Gourmet_Food/rule_attention_bias/final/i128_bias_context_gate_bias1/result.json&quot;}, {&quot;key&quot;: &quot;Grocery_and_Gourmet_Food/transformer_only&quot;, &quot;dataset&quot;: &quot;Grocery_and_Gourmet_Food&quot;, &quot;variant&quot;: &quot;transformer_only&quot;, &quot;variantLabel&quot;: &quot;Transformer only&quot;, &quot;color&quot;: &quot;#7C8CF8&quot;, &quot;ndcg10&quot;: 0.0093, &quot;hr10&quot;: 0.0185, &quot;futureNdcg10&quot;: 0.0111, &quot;deltaNdcg10&quot;: -0.211864, &quot;deltaHr10&quot;: -0.151376, &quot;selectedConfig&quot;: &quot;i128_bias_context_gate_bias1&quot;, &quot;resultPath&quot;: &quot;.omx/ultragoal/scheme_i_structural_hybrid_gpu_main/Grocery_and_Gourmet_Food/transformer_only/final/i128_bias_context_gate_bias1/result.json&quot;}, {&quot;key&quot;: &quot;Musical_Instruments/gated_fusion_full&quot;, &quot;dataset&quot;: &quot;Musical_Instruments&quot;, &quot;variant&quot;: &quot;gated_fusion_full&quot;, &quot;variantLabel&quot;: &quot;Gated fusion full&quot;, &quot;color&quot;: &quot;#EC4899&quot;, &quot;ndcg10&quot;: 0.0106, &quot;hr10&quot;: 0.0195, &quot;futureNdcg10&quot;: 0.0137, &quot;deltaNdcg10&quot;: -0.152, &quot;deltaHr10&quot;: -0.170213, &quot;selectedConfig&quot;: &quot;i64_bias_context_gate_bias1&quot;, &quot;resultPath&quot;: &quot;.omx/ultragoal/scheme_i_structural_hybrid_gpu_main/Musical_Instruments/gated_fusion_full/final/i64_bias_context_gate_bias1/result.json&quot;}, {&quot;key&quot;: &quot;Musical_Instruments/mamba_context_token&quot;, &quot;dataset&quot;: &quot;Musical_Instruments&quot;, &quot;variant&quot;: &quot;mamba_context_token&quot;, &quot;variantLabel&quot;: &quot;Mamba context token&quot;, &quot;color&quot;: &quot;#F59E0B&quot;, &quot;ndcg10&quot;: 0.0115, &quot;hr10&quot;: 0.0221, &quot;futureNdcg10&quot;: 0.0151, &quot;deltaNdcg10&quot;: -0.08, &quot;deltaHr10&quot;: -0.059574, &quot;selectedConfig&quot;: &quot;i64_bias_context_gate_bias1&quot;, &quot;resultPath&quot;: &quot;.omx/ultragoal/scheme_i_structural_hybrid_gpu_main/Musical_Instruments/mamba_context_token/final/i64_bias_context_gate_bias1/result.json&quot;}, {&quot;key&quot;: &quot;Musical_Instruments/rule_attention_bias&quot;, &quot;dataset&quot;: &quot;Musical_Instruments&quot;, &quot;variant&quot;: &quot;rule_attention_bias&quot;, &quot;variantLabel&quot;: &quot;Rule attention bias&quot;, &quot;color&quot;: &quot;#18B8A6&quot;, &quot;ndcg10&quot;: 0.0112, &quot;hr10&quot;: 0.0217, &quot;futureNdcg10&quot;: 0.0148, &quot;deltaNdcg10&quot;: -0.104, &quot;deltaHr10&quot;: -0.076596, &quot;selectedConfig&quot;: &quot;i128_bias_context_gate_bias1&quot;, &quot;resultPath&quot;: &quot;.omx/ultragoal/scheme_i_structural_hybrid_gpu_main/Musical_Instruments/rule_attention_bias/final/i128_bias_context_gate_bias1/result.json&quot;}, {&quot;key&quot;: &quot;Musical_Instruments/transformer_only&quot;, &quot;dataset&quot;: &quot;Musical_Instruments&quot;, &quot;variant&quot;: &quot;transformer_only&quot;, &quot;variantLabel&quot;: &quot;Transformer only&quot;, &quot;color&quot;: &quot;#7C8CF8&quot;, &quot;ndcg10&quot;: 0.0112, &quot;hr10&quot;: 0.0218, &quot;futureNdcg10&quot;: 0.0149, &quot;deltaNdcg10&quot;: -0.104, &quot;deltaHr10&quot;: -0.07234, &quot;selectedConfig&quot;: &quot;i128_bias_context_gate_bias1&quot;, &quot;resultPath&quot;: &quot;.omx/ultragoal/scheme_i_structural_hybrid_gpu_main/Musical_Instruments/transformer_only/final/i128_bias_context_gate_bias1/result.json&quot;}, {&quot;key&quot;: &quot;Office_Products/gated_fusion_full&quot;, &quot;dataset&quot;: &quot;Office_Products&quot;, &quot;variant&quot;: &quot;gated_fusion_full&quot;, &quot;variantLabel&quot;: &quot;Gated fusion full&quot;, &quot;color&quot;: &quot;#EC4899&quot;, &quot;ndcg10&quot;: 0.0091, &quot;hr10&quot;: 0.015, &quot;futureNdcg10&quot;: 0.0101, &quot;deltaNdcg10&quot;: -0.305344, &quot;deltaHr10&quot;: -0.372385, &quot;selectedConfig&quot;: &quot;i128_bias_context_gate_bias1&quot;, &quot;resultPath&quot;: &quot;.omx/ultragoal/scheme_i_structural_hybrid_gpu_main/Office_Products/gated_fusion_full/final/i128_bias_context_gate_bias1/result.json&quot;}, {&quot;key&quot;: &quot;Office_Products/mamba_context_token&quot;, &quot;dataset&quot;: &quot;Office_Products&quot;, &quot;variant&quot;: &quot;mamba_context_token&quot;, &quot;variantLabel&quot;: &quot;Mamba context token&quot;, &quot;color&quot;: &quot;#F59E0B&quot;, &quot;ndcg10&quot;: 0.0102, &quot;hr10&quot;: 0.0194, &quot;futureNdcg10&quot;: 0.0132, &quot;deltaNdcg10&quot;: -0.221374, &quot;deltaHr10&quot;: -0.188285, &quot;selectedConfig&quot;: &quot;i128_bias_context_gate_bias1&quot;, &quot;resultPath&quot;: &quot;.omx/ultragoal/scheme_i_structural_hybrid_gpu_main/Office_Products/mamba_context_token/final/i128_bias_context_gate_bias1/result.json&quot;}, {&quot;key&quot;: &quot;Office_Products/rule_attention_bias&quot;, &quot;dataset&quot;: &quot;Office_Products&quot;, &quot;variant&quot;: &quot;rule_attention_bias&quot;, &quot;variantLabel&quot;: &quot;Rule attention bias&quot;, &quot;color&quot;: &quot;#18B8A6&quot;, &quot;ndcg10&quot;: 0.0103, &quot;hr10&quot;: 0.0192, &quot;futureNdcg10&quot;: 0.0138, &quot;deltaNdcg10&quot;: -0.21374, &quot;deltaHr10&quot;: -0.196653, &quot;selectedConfig&quot;: &quot;i128_bias_context_gate_bias1&quot;, &quot;resultPath&quot;: &quot;.omx/ultragoal/scheme_i_structural_hybrid_gpu_main/Office_Products/rule_attention_bias/final/i128_bias_context_gate_bias1/result.json&quot;}, {&quot;key&quot;: &quot;Office_Products/transformer_only&quot;, &quot;dataset&quot;: &quot;Office_Products&quot;, &quot;variant&quot;: &quot;transformer_only&quot;, &quot;variantLabel&quot;: &quot;Transformer only&quot;, &quot;color&quot;: &quot;#7C8CF8&quot;, &quot;ndcg10&quot;: 0.0101, &quot;hr10&quot;: 0.0191, &quot;futureNdcg10&quot;: 0.0137, &quot;deltaNdcg10&quot;: -0.229008, &quot;deltaHr10&quot;: -0.200837, &quot;selectedConfig&quot;: &quot;i128_bias_context_gate_bias1&quot;, &quot;resultPath&quot;: &quot;.omx/ultragoal/scheme_i_structural_hybrid_gpu_main/Office_Products/transformer_only/final/i128_bias_context_gate_bias1/result.json&quot;}, {&quot;key&quot;: &quot;Toys_and_Games/gated_fusion_full&quot;, &quot;dataset&quot;: &quot;Toys_and_Games&quot;, &quot;variant&quot;: &quot;gated_fusion_full&quot;, &quot;variantLabel&quot;: &quot;Gated fusion full&quot;, &quot;color&quot;: &quot;#EC4899&quot;, &quot;ndcg10&quot;: 0.0046, &quot;hr10&quot;: 0.0078, &quot;futureNdcg10&quot;: 0.0052, &quot;deltaNdcg10&quot;: -0.566038, &quot;deltaHr10&quot;: -0.595855, &quot;selectedConfig&quot;: &quot;i128_bias_context_gate_bias1&quot;, &quot;resultPath&quot;: &quot;.omx/ultragoal/scheme_i_structural_hybrid_gpu_main/Toys_and_Games/gated_fusion_full/final/i128_bias_context_gate_bias1/result.json&quot;}, {&quot;key&quot;: &quot;Toys_and_Games/mamba_context_token&quot;, &quot;dataset&quot;: &quot;Toys_and_Games&quot;, &quot;variant&quot;: &quot;mamba_context_token&quot;, &quot;variantLabel&quot;: &quot;Mamba context token&quot;, &quot;color&quot;: &quot;#F59E0B&quot;, &quot;ndcg10&quot;: 0.007, &quot;hr10&quot;: 0.0135, &quot;futureNdcg10&quot;: 0.0094, &quot;deltaNdcg10&quot;: -0.339623, &quot;deltaHr10&quot;: -0.300518, &quot;selectedConfig&quot;: &quot;i128_bias_context_gate_bias1&quot;, &quot;resultPath&quot;: &quot;.omx/ultragoal/scheme_i_structural_hybrid_gpu_main/Toys_and_Games/mamba_context_token/final/i128_bias_context_gate_bias1/result.json&quot;}, {&quot;key&quot;: &quot;Toys_and_Games/rule_attention_bias&quot;, &quot;dataset&quot;: &quot;Toys_and_Games&quot;, &quot;variant&quot;: &quot;rule_attention_bias&quot;, &quot;variantLabel&quot;: &quot;Rule attention bias&quot;, &quot;color&quot;: &quot;#18B8A6&quot;, &quot;ndcg10&quot;: 0.007, &quot;hr10&quot;: 0.0133, &quot;futureNdcg10&quot;: 0.0087, &quot;deltaNdcg10&quot;: -0.339623, &quot;deltaHr10&quot;: -0.310881, &quot;selectedConfig&quot;: &quot;i128_bias_context_gate_bias1&quot;, &quot;resultPath&quot;: &quot;.omx/ultragoal/scheme_i_structural_hybrid_gpu_main/Toys_and_Games/rule_attention_bias/final/i128_bias_context_gate_bias1/result.json&quot;}, {&quot;key&quot;: &quot;Toys_and_Games/transformer_only&quot;, &quot;dataset&quot;: &quot;Toys_and_Games&quot;, &quot;variant&quot;: &quot;transformer_only&quot;, &quot;variantLabel&quot;: &quot;Transformer only&quot;, &quot;color&quot;: &quot;#7C8CF8&quot;, &quot;ndcg10&quot;: 0.0069, &quot;hr10&quot;: 0.0132, &quot;futureNdcg10&quot;: 0.0085, &quot;deltaNdcg10&quot;: -0.349057, &quot;deltaHr10&quot;: -0.316062, &quot;selectedConfig&quot;: &quot;i128_bias_context_gate_bias1&quot;, &quot;resultPath&quot;: &quot;.omx/ultragoal/scheme_i_structural_hybrid_gpu_main/Toys_and_Games/transformer_only/final/i128_bias_context_gate_bias1/result.json&quot;}, {&quot;key&quot;: &quot;Video_Games/gated_fusion_full&quot;, &quot;dataset&quot;: &quot;Video_Games&quot;, &quot;variant&quot;: &quot;gated_fusion_full&quot;, &quot;variantLabel&quot;: &quot;Gated fusion full&quot;, &quot;color&quot;: &quot;#EC4899&quot;, &quot;ndcg10&quot;: 0.0181, &quot;hr10&quot;: 0.0354, &quot;futureNdcg10&quot;: 0.0213, &quot;deltaNdcg10&quot;: -0.351254, &quot;deltaHr10&quot;: -0.323136, &quot;selectedConfig&quot;: &quot;i128_bias_context_gate_bias1&quot;, &quot;resultPath&quot;: &quot;.omx/ultragoal/scheme_i_structural_hybrid_gpu_main/Video_Games/gated_fusion_full/final/i128_bias_context_gate_bias1/result.json&quot;}, {&quot;key&quot;: &quot;Video_Games/mamba_context_token&quot;, &quot;dataset&quot;: &quot;Video_Games&quot;, &quot;variant&quot;: &quot;mamba_context_token&quot;, &quot;variantLabel&quot;: &quot;Mamba context token&quot;, &quot;color&quot;: &quot;#F59E0B&quot;, &quot;ndcg10&quot;: 0.0195, &quot;hr10&quot;: 0.0372, &quot;futureNdcg10&quot;: 0.0194, &quot;deltaNdcg10&quot;: -0.301075, &quot;deltaHr10&quot;: -0.288719, &quot;selectedConfig&quot;: &quot;i64_bias_context_gate_bias1&quot;, &quot;resultPath&quot;: &quot;.omx/ultragoal/scheme_i_structural_hybrid_gpu_main/Video_Games/mamba_context_token/final/i64_bias_context_gate_bias1/result.json&quot;}, {&quot;key&quot;: &quot;Video_Games/rule_attention_bias&quot;, &quot;dataset&quot;: &quot;Video_Games&quot;, &quot;variant&quot;: &quot;rule_attention_bias&quot;, &quot;variantLabel&quot;: &quot;Rule attention bias&quot;, &quot;color&quot;: &quot;#18B8A6&quot;, &quot;ndcg10&quot;: 0.0175, &quot;hr10&quot;: 0.0351, &quot;futureNdcg10&quot;: 0.0217, &quot;deltaNdcg10&quot;: -0.37276, &quot;deltaHr10&quot;: -0.328872, &quot;selectedConfig&quot;: &quot;i128_bias_context_gate_bias1&quot;, &quot;resultPath&quot;: &quot;.omx/ultragoal/scheme_i_structural_hybrid_gpu_main/Video_Games/rule_attention_bias/final/i128_bias_context_gate_bias1/result.json&quot;}, {&quot;key&quot;: &quot;Video_Games/transformer_only&quot;, &quot;dataset&quot;: &quot;Video_Games&quot;, &quot;variant&quot;: &quot;transformer_only&quot;, &quot;variantLabel&quot;: &quot;Transformer only&quot;, &quot;color&quot;: &quot;#7C8CF8&quot;, &quot;ndcg10&quot;: 0.017, &quot;hr10&quot;: 0.0339, &quot;futureNdcg10&quot;: 0.021, &quot;deltaNdcg10&quot;: -0.390681, &quot;deltaHr10&quot;: -0.351816, &quot;selectedConfig&quot;: &quot;i128_bias_context_gate_bias1&quot;, &quot;resultPath&quot;: &quot;.omx/ultragoal/scheme_i_structural_hybrid_gpu_main/Video_Games/transformer_only/final/i128_bias_context_gate_bias1/result.json&quot;}]</script>
+<script src="https://cdn.jsdelivr.net/npm/gsap@3.13.0/dist/gsap.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/gsap@3.13.0/dist/ScrollTrigger.min.js"></script>
+<script src="report_assets/scheme_i_gsap_report.js"></script>
+</body>
+</html>

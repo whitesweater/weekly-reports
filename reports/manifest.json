@@ -1,0 +1,13 @@
+{
+  "reports": [
+    {
+      "date": "2026-06-25",
+      "title": "Scheme-I GSAP 交互式实验报告",
+      "slug": "scheme-i-structural-hybrid-gpu-main-gsap",
+      "path": "reports/2026-06-25-scheme-i-structural-hybrid-gpu-main-gsap/",
+      "record": "records/2026-06-25-scheme-i-structural-hybrid-gpu-main-gsap.md",
+      "source": "reproduction_evidence/scheme_i_structural_hybrid_gpu_main_gsap_report.html",
+      "tags": ["Scheme-I", "GSAP", "GPU main", "reproduction"]
+    }
+  ]
+}

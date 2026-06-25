@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>ManCAR Weekly Reports</title>
+  <link rel="stylesheet" href="assets/site.css" />
+</head>
+<body>
+  <header class="site-header">
+    <p class="eyebrow">ManCAR Weekly Reports</p>
+    <h1>周会报告与实验记录归档</h1>
+    <p class="lede">按时间顺序保存每周例会报告、可复现证据和实验记录，便于回看 Scheme-I / Scheme-H / ManCAR 迁移过程中的关键结果。</p>
+    <nav class="toolbar" aria-label="Primary">
+      <a class="button" href="reports/2026-06-25-scheme-i-structural-hybrid-gpu-main-gsap/">打开最新报告</a>
+      <a class="button secondary" href="reports/">查看全部报告</a>
+      <a class="button secondary" href="records/2026-06-25-scheme-i-structural-hybrid-gpu-main-gsap.md">实验记录</a>
+    </nav>
+  </header>
+
+  <main class="site-main grid">
+    <section class="panel" aria-labelledby="reports-title">
+      <h2 id="reports-title">时间线</h2>
+      <ol class="report-list">
+        <li class="report-item">
+          <time datetime="2026-06-25">2026-06-25</time>
+          <h3><a href="reports/2026-06-25-scheme-i-structural-hybrid-gpu-main-gsap/">Scheme-I GSAP 交互式实验报告</a></h3>
+          <p>Scheme-I structural hybrid GPU main 结果的交互式周会报告，包含路线、方法、结果和 reproduction evidence 链接。</p>
+          <div class="tag-row" aria-label="Tags">
+            <span class="tag">Scheme-I</span>
+            <span class="tag">GSAP</span>
+            <span class="tag">GPU main</span>
+            <span class="tag">reproduction</span>
+          </div>
+        </li>
+      </ol>
+    </section>
+
+    <aside class="panel" aria-labelledby="repo-title">
+      <h2 id="repo-title">归档约定</h2>
+      <ul class="meta-list">
+        <li><strong>报告快照：</strong>每期报告固定在 `reports/YYYY-MM-DD-topic/`。</li>
+        <li><strong>实验记录：</strong>每期配套 `records/YYYY-MM-DD-topic.md`。</li>
+        <li><strong>源数据：</strong>报告引用的 JSON、CSS、JS、图片与报告同目录保存。</li>
+        <li><strong>排序：</strong>首页和 `reports/` 按日期倒序维护。</li>
+      </ul>
+    </aside>
+  </main>
+
+  <footer class="site-footer">
+    <span>Generated from ManCAR reproduction evidence. Published with GitHub Pages.</span>
+  </footer>
+</body>
+</html>
