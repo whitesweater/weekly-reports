@@ -964,6 +964,7 @@ tokens = [context] + prompt_tokens + history_tokens</pre>
       <h3>运行配置</h3>
       <ul class="compact-list">
         <li>Final run tag: <code>mancar_attn_mamba_20260625T061946Z</code></li>
+        <li>Archived JSON: <code>mancar_attention_mamba_ablation_results.json</code></li>
         <li>Settings: <code>baseline</code>, <code>attention_bias</code>, <code>mamba</code>, <code>attention_bias_mamba</code></li>
         <li>Batch: <code>batch_size=512</code>, <code>eval_batch_size=1024</code></li>
         <li>Training: <code>epoch=200</code>, <code>early_stop=5</code>, <code>reason_step=5</code>, <code>num_workers=8</code></li>
@@ -986,6 +987,40 @@ tokens = [context] + prompt_tokens + history_tokens</pre>
     <article><strong>NDCG@10 读数</strong><p>新机制在 CDs、Office、Arts、Toys、Grocery 上拿到最高或并列最高 NDCG@10；Video 和 Musical 仍由 baseline 领先。</p></article>
     <article><strong>HR@10 读数</strong><p>HR@10 显示局部召回信号：Office、Arts、Musical、Toys、Grocery 的最好 HR 来自新机制或并列新机制。</p></article>
     <article><strong>工程读数</strong><p>迁移是可运行的：四组开关都能训练、评估、收集日志和生成 28 行报告；这轮不声明机制稳定全面超过 baseline。</p></article>
+  </div>
+
+
+  <div class="mancar-visual-summary" aria-label="ManCAR native ablation visual summary">
+    <div class="visual-copy">
+      <span>Visual readout</span>
+      <h3>先看方向，再看表格</h3>
+      <p>下面三张图把 28 行明细压成三个问题：哪些数据集真的高于 baseline、哪个机制平均更强、每个数据集最强的非 baseline setting 是谁。表格仍保留，但它现在主要用于复核精确数值。</p>
+    </div>
+    <div class="visual-stats">
+      <article><b>5/7</b><span>NDCG@10 由新机制拿到最高或并列最高</span></article>
+      <article><b>5/7</b><span>HR@10 由新机制拿到最高或并列最高</span></article>
+      <article><b>28/28</b><span>final run tag 完整收集完成</span></article>
+    </div>
+  </div>
+
+  <div class="mancar-chart-grid">
+    <article class="mancar-chart-card wide">
+      <img src="report_assets/mancar_native_delta_heatmap.png" alt="Heatmap of NDCG@10 and HR@10 lift versus baseline for ManCAR native attention bias and Mamba settings" loading="eager" />
+      <p>读法：蓝/绿方向是正 lift，橙色方向是低于 baseline。NDCG 和 HR 分开看，因为一个看排序质量，一个看是否进入 Top-10。</p>
+    </article>
+    <article class="mancar-chart-card">
+      <img src="report_assets/mancar_native_avg_lift.png" alt="Grouped bars showing average lift versus baseline by mechanism and metric" loading="eager" />
+      <p>读法：平均 lift 说明机制整体趋势，但不能替代逐数据集判断。Mamba 与组合机制的平均排序信号更明显。</p>
+    </article>
+    <article class="mancar-chart-card">
+      <img src="report_assets/mancar_native_best_lift.png" alt="Horizontal bars showing best non-baseline NDCG@10 lift by dataset" loading="eager" />
+      <p>读法：每个数据集只取一个最强非 baseline setting。负条表示即使选最强机制也没超过 baseline。</p>
+    </article>
+  </div>
+
+  <div class="callout-wide mancar-chart-note">
+    <strong>图表结论：</strong>
+    这轮不是“新机制全面碾压 baseline”，而是更细的局部信号：Mamba / 组合机制在 Office、Arts、Toys、Grocery 等数据集上有排序或召回 lift；Video 和 Musical 仍提醒我们 baseline 很强，下一轮需要调 <code>attention_bias_weight</code>、context token 注入强度和多 seed 稳定性。
   </div>
 
   <div class="table-shell">

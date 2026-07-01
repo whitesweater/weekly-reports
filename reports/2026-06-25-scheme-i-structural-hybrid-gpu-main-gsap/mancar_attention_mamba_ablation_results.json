@@ -1,0 +1,628 @@
+{
+  "all_complete": true,
+  "complete_rows": 28,
+  "datasets": [
+    "CDs_and_Vinyl",
+    "Video_Games",
+    "Office_Products",
+    "Arts_Crafts_and_Sewing",
+    "Musical_Instruments",
+    "Toys_and_Games",
+    "Grocery_and_Gourmet_Food"
+  ],
+  "expected_rows": 28,
+  "generated_at": "2026-06-25T12:57:30.095901+00:00",
+  "rows": [
+    {
+      "attention_bias": 0,
+      "dataset": "CDs_and_Vinyl",
+      "final_line": "Test After Training: (NDCG@5 : 0.023    NDCG@10 : 0.0282    NDCG@20 : 0.0324    HR@5 : 0.0349    HR@10 : 0.051    HR@20 : 0.0674    MRR@5 : 0.0191    MRR@10 : 0.0212    MRR@20 : 0.0224)",
+      "log_path": "ManCAR/logs/CDs_and_Vinyl/mancar_CDs_and_Vinyl_mancar_attn_mamba_20260625T061946Z_baseline.log",
+      "mamba": 0,
+      "metrics": {
+        "HR@10": 0.051,
+        "HR@20": 0.0674,
+        "HR@5": 0.0349,
+        "MRR@10": 0.0212,
+        "MRR@20": 0.0224,
+        "MRR@5": 0.0191,
+        "NDCG@10": 0.0282,
+        "NDCG@20": 0.0324,
+        "NDCG@5": 0.023
+      },
+      "missing_metrics": [],
+      "setting": "baseline",
+      "status": "complete"
+    },
+    {
+      "attention_bias": 1,
+      "dataset": "CDs_and_Vinyl",
+      "final_line": "Test After Training: (NDCG@5 : 0.0217    NDCG@10 : 0.0271    NDCG@20 : 0.0311    HR@5 : 0.0332    HR@10 : 0.0502    HR@20 : 0.066    MRR@5 : 0.0179    MRR@10 : 0.0201    MRR@20 : 0.0212)",
+      "log_path": "ManCAR/logs/CDs_and_Vinyl/mancar_CDs_and_Vinyl_mancar_attn_mamba_20260625T061946Z_attention_bias.log",
+      "mamba": 0,
+      "metrics": {
+        "HR@10": 0.0502,
+        "HR@20": 0.066,
+        "HR@5": 0.0332,
+        "MRR@10": 0.0201,
+        "MRR@20": 0.0212,
+        "MRR@5": 0.0179,
+        "NDCG@10": 0.0271,
+        "NDCG@20": 0.0311,
+        "NDCG@5": 0.0217
+      },
+      "missing_metrics": [],
+      "setting": "attention_bias",
+      "status": "complete"
+    },
+    {
+      "attention_bias": 0,
+      "dataset": "CDs_and_Vinyl",
+      "final_line": "Test After Training: (NDCG@5 : 0.0247    NDCG@10 : 0.029    NDCG@20 : 0.0323    HR@5 : 0.0346    HR@10 : 0.0482    HR@20 : 0.0615    MRR@5 : 0.0213    MRR@10 : 0.0232    MRR@20 : 0.024)",
+      "log_path": "ManCAR/logs/CDs_and_Vinyl/mancar_CDs_and_Vinyl_mancar_attn_mamba_20260625T061946Z_mamba.log",
+      "mamba": 1,
+      "metrics": {
+        "HR@10": 0.0482,
+        "HR@20": 0.0615,
+        "HR@5": 0.0346,
+        "MRR@10": 0.0232,
+        "MRR@20": 0.024,
+        "MRR@5": 0.0213,
+        "NDCG@10": 0.029,
+        "NDCG@20": 0.0323,
+        "NDCG@5": 0.0247
+      },
+      "missing_metrics": [],
+      "setting": "mamba",
+      "status": "complete"
+    },
+    {
+      "attention_bias": 1,
+      "dataset": "CDs_and_Vinyl",
+      "final_line": "Test After Training: (NDCG@5 : 0.0228    NDCG@10 : 0.0265    NDCG@20 : 0.0298    HR@5 : 0.0357    HR@10 : 0.047    HR@20 : 0.0598    MRR@5 : 0.0186    MRR@10 : 0.0201    MRR@20 : 0.021)",
+      "log_path": "ManCAR/logs/CDs_and_Vinyl/mancar_CDs_and_Vinyl_mancar_attn_mamba_20260625T061946Z_attention_bias_mamba.log",
+      "mamba": 1,
+      "metrics": {
+        "HR@10": 0.047,
+        "HR@20": 0.0598,
+        "HR@5": 0.0357,
+        "MRR@10": 0.0201,
+        "MRR@20": 0.021,
+        "MRR@5": 0.0186,
+        "NDCG@10": 0.0265,
+        "NDCG@20": 0.0298,
+        "NDCG@5": 0.0228
+      },
+      "missing_metrics": [],
+      "setting": "attention_bias_mamba",
+      "status": "complete"
+    },
+    {
+      "attention_bias": 0,
+      "dataset": "Video_Games",
+      "final_line": "Test After Training: (NDCG@5 : 0.0208    NDCG@10 : 0.0273    NDCG@20 : 0.0318    HR@5 : 0.0342    HR@10 : 0.0544    HR@20 : 0.0723    MRR@5 : 0.0164    MRR@10 : 0.019    MRR@20 : 0.0203)",
+      "log_path": "ManCAR/logs/Video_Games/mancar_Video_Games_mancar_attn_mamba_20260625T061946Z_baseline.log",
+      "mamba": 0,
+      "metrics": {
+        "HR@10": 0.0544,
+        "HR@20": 0.0723,
+        "HR@5": 0.0342,
+        "MRR@10": 0.019,
+        "MRR@20": 0.0203,
+        "MRR@5": 0.0164,
+        "NDCG@10": 0.0273,
+        "NDCG@20": 0.0318,
+        "NDCG@5": 0.0208
+      },
+      "missing_metrics": [],
+      "setting": "baseline",
+      "status": "complete"
+    },
+    {
+      "attention_bias": 1,
+      "dataset": "Video_Games",
+      "final_line": "Test After Training: (NDCG@5 : 0.0217    NDCG@10 : 0.0267    NDCG@20 : 0.0321    HR@5 : 0.0351    HR@10 : 0.0509    HR@20 : 0.0723    MRR@5 : 0.0173    MRR@10 : 0.0194    MRR@20 : 0.0209)",
+      "log_path": "ManCAR/logs/Video_Games/mancar_Video_Games_mancar_attn_mamba_20260625T061946Z_attention_bias.log",
+      "mamba": 0,
+      "metrics": {
+        "HR@10": 0.0509,
+        "HR@20": 0.0723,
+        "HR@5": 0.0351,
+        "MRR@10": 0.0194,
+        "MRR@20": 0.0209,
+        "MRR@5": 0.0173,
+        "NDCG@10": 0.0267,
+        "NDCG@20": 0.0321,
+        "NDCG@5": 0.0217
+      },
+      "missing_metrics": [],
+      "setting": "attention_bias",
+      "status": "complete"
+    },
+    {
+      "attention_bias": 0,
+      "dataset": "Video_Games",
+      "final_line": "Test After Training: (NDCG@5 : 0.0224    NDCG@10 : 0.0271    NDCG@20 : 0.0318    HR@5 : 0.0348    HR@10 : 0.05    HR@20 : 0.0684    MRR@5 : 0.0183    MRR@10 : 0.0202    MRR@20 : 0.0215)",
+      "log_path": "ManCAR/logs/Video_Games/mancar_Video_Games_mancar_attn_mamba_20260625T061946Z_mamba.log",
+      "mamba": 1,
+      "metrics": {
+        "HR@10": 0.05,
+        "HR@20": 0.0684,
+        "HR@5": 0.0348,
+        "MRR@10": 0.0202,
+        "MRR@20": 0.0215,
+        "MRR@5": 0.0183,
+        "NDCG@10": 0.0271,
+        "NDCG@20": 0.0318,
+        "NDCG@5": 0.0224
+      },
+      "missing_metrics": [],
+      "setting": "mamba",
+      "status": "complete"
+    },
+    {
+      "attention_bias": 1,
+      "dataset": "Video_Games",
+      "final_line": "Test After Training: (NDCG@5 : 0.0208    NDCG@10 : 0.0268    NDCG@20 : 0.0314    HR@5 : 0.0336    HR@10 : 0.0521    HR@20 : 0.0705    MRR@5 : 0.0167    MRR@10 : 0.0191    MRR@20 : 0.0204)",
+      "log_path": "ManCAR/logs/Video_Games/mancar_Video_Games_mancar_attn_mamba_20260625T061946Z_attention_bias_mamba.log",
+      "mamba": 1,
+      "metrics": {
+        "HR@10": 0.0521,
+        "HR@20": 0.0705,
+        "HR@5": 0.0336,
+        "MRR@10": 0.0191,
+        "MRR@20": 0.0204,
+        "MRR@5": 0.0167,
+        "NDCG@10": 0.0268,
+        "NDCG@20": 0.0314,
+        "NDCG@5": 0.0208
+      },
+      "missing_metrics": [],
+      "setting": "attention_bias_mamba",
+      "status": "complete"
+    },
+    {
+      "attention_bias": 0,
+      "dataset": "Office_Products",
+      "final_line": "Test After Training: (NDCG@5 : 0.0114    NDCG@10 : 0.0134    NDCG@20 : 0.0153    HR@5 : 0.0163    HR@10 : 0.0225    HR@20 : 0.0301    MRR@5 : 0.0098    MRR@10 : 0.0106    MRR@20 : 0.0111)",
+      "log_path": "ManCAR/logs/Office_Products/mancar_Office_Products_mancar_attn_mamba_20260625T061946Z_baseline.log",
+      "mamba": 0,
+      "metrics": {
+        "HR@10": 0.0225,
+        "HR@20": 0.0301,
+        "HR@5": 0.0163,
+        "MRR@10": 0.0106,
+        "MRR@20": 0.0111,
+        "MRR@5": 0.0098,
+        "NDCG@10": 0.0134,
+        "NDCG@20": 0.0153,
+        "NDCG@5": 0.0114
+      },
+      "missing_metrics": [],
+      "setting": "baseline",
+      "status": "complete"
+    },
+    {
+      "attention_bias": 1,
+      "dataset": "Office_Products",
+      "final_line": "Test After Training: (NDCG@5 : 0.0115    NDCG@10 : 0.0135    NDCG@20 : 0.0155    HR@5 : 0.0162    HR@10 : 0.0224    HR@20 : 0.03    MRR@5 : 0.0099    MRR@10 : 0.0108    MRR@20 : 0.0113)",
+      "log_path": "ManCAR/logs/Office_Products/mancar_Office_Products_mancar_attn_mamba_20260625T061946Z_attention_bias.log",
+      "mamba": 0,
+      "metrics": {
+        "HR@10": 0.0224,
+        "HR@20": 0.03,
+        "HR@5": 0.0162,
+        "MRR@10": 0.0108,
+        "MRR@20": 0.0113,
+        "MRR@5": 0.0099,
+        "NDCG@10": 0.0135,
+        "NDCG@20": 0.0155,
+        "NDCG@5": 0.0115
+      },
+      "missing_metrics": [],
+      "setting": "attention_bias",
+      "status": "complete"
+    },
+    {
+      "attention_bias": 0,
+      "dataset": "Office_Products",
+      "final_line": "Test After Training: (NDCG@5 : 0.0123    NDCG@10 : 0.0141    NDCG@20 : 0.016    HR@5 : 0.0173    HR@10 : 0.0229    HR@20 : 0.0304    MRR@5 : 0.0107    MRR@10 : 0.0114    MRR@20 : 0.0119)",
+      "log_path": "ManCAR/logs/Office_Products/mancar_Office_Products_mancar_attn_mamba_20260625T061946Z_mamba.log",
+      "mamba": 1,
+      "metrics": {
+        "HR@10": 0.0229,
+        "HR@20": 0.0304,
+        "HR@5": 0.0173,
+        "MRR@10": 0.0114,
+        "MRR@20": 0.0119,
+        "MRR@5": 0.0107,
+        "NDCG@10": 0.0141,
+        "NDCG@20": 0.016,
+        "NDCG@5": 0.0123
+      },
+      "missing_metrics": [],
+      "setting": "mamba",
+      "status": "complete"
+    },
+    {
+      "attention_bias": 1,
+      "dataset": "Office_Products",
+      "final_line": "Test After Training: (NDCG@5 : 0.0119    NDCG@10 : 0.014    NDCG@20 : 0.016    HR@5 : 0.0171    HR@10 : 0.0235    HR@20 : 0.0316    MRR@5 : 0.0102    MRR@10 : 0.0111    MRR@20 : 0.0116)",
+      "log_path": "ManCAR/logs/Office_Products/mancar_Office_Products_mancar_attn_mamba_20260625T061946Z_attention_bias_mamba.log",
+      "mamba": 1,
+      "metrics": {
+        "HR@10": 0.0235,
+        "HR@20": 0.0316,
+        "HR@5": 0.0171,
+        "MRR@10": 0.0111,
+        "MRR@20": 0.0116,
+        "MRR@5": 0.0102,
+        "NDCG@10": 0.014,
+        "NDCG@20": 0.016,
+        "NDCG@5": 0.0119
+      },
+      "missing_metrics": [],
+      "setting": "attention_bias_mamba",
+      "status": "complete"
+    },
+    {
+      "attention_bias": 0,
+      "dataset": "Arts_Crafts_and_Sewing",
+      "final_line": "Test After Training: (NDCG@5 : 0.008    NDCG@10 : 0.0099    NDCG@20 : 0.0122    HR@5 : 0.0124    HR@10 : 0.0185    HR@20 : 0.0274    MRR@5 : 0.0065    MRR@10 : 0.0073    MRR@20 : 0.0079)",
+      "log_path": "ManCAR/logs/Arts_Crafts_and_Sewing/mancar_Arts_Crafts_and_Sewing_mancar_attn_mamba_20260625T061946Z_baseline.log",
+      "mamba": 0,
+      "metrics": {
+        "HR@10": 0.0185,
+        "HR@20": 0.0274,
+        "HR@5": 0.0124,
+        "MRR@10": 0.0073,
+        "MRR@20": 0.0079,
+        "MRR@5": 0.0065,
+        "NDCG@10": 0.0099,
+        "NDCG@20": 0.0122,
+        "NDCG@5": 0.008
+      },
+      "missing_metrics": [],
+      "setting": "baseline",
+      "status": "complete"
+    },
+    {
+      "attention_bias": 1,
+      "dataset": "Arts_Crafts_and_Sewing",
+      "final_line": "Test After Training: (NDCG@5 : 0.0075    NDCG@10 : 0.0097    NDCG@20 : 0.012    HR@5 : 0.012    HR@10 : 0.0188    HR@20 : 0.028    MRR@5 : 0.006    MRR@10 : 0.0069    MRR@20 : 0.0076)",
+      "log_path": "ManCAR/logs/Arts_Crafts_and_Sewing/mancar_Arts_Crafts_and_Sewing_mancar_attn_mamba_20260625T061946Z_attention_bias.log",
+      "mamba": 0,
+      "metrics": {
+        "HR@10": 0.0188,
+        "HR@20": 0.028,
+        "HR@5": 0.012,
+        "MRR@10": 0.0069,
+        "MRR@20": 0.0076,
+        "MRR@5": 0.006,
+        "NDCG@10": 0.0097,
+        "NDCG@20": 0.012,
+        "NDCG@5": 0.0075
+      },
+      "missing_metrics": [],
+      "setting": "attention_bias",
+      "status": "complete"
+    },
+    {
+      "attention_bias": 0,
+      "dataset": "Arts_Crafts_and_Sewing",
+      "final_line": "Test After Training: (NDCG@5 : 0.0085    NDCG@10 : 0.0103    NDCG@20 : 0.0125    HR@5 : 0.0129    HR@10 : 0.0186    HR@20 : 0.0274    MRR@5 : 0.0071    MRR@10 : 0.0078    MRR@20 : 0.0084)",
+      "log_path": "ManCAR/logs/Arts_Crafts_and_Sewing/mancar_Arts_Crafts_and_Sewing_mancar_attn_mamba_20260625T061946Z_mamba.log",
+      "mamba": 1,
+      "metrics": {
+        "HR@10": 0.0186,
+        "HR@20": 0.0274,
+        "HR@5": 0.0129,
+        "MRR@10": 0.0078,
+        "MRR@20": 0.0084,
+        "MRR@5": 0.0071,
+        "NDCG@10": 0.0103,
+        "NDCG@20": 0.0125,
+        "NDCG@5": 0.0085
+      },
+      "missing_metrics": [],
+      "setting": "mamba",
+      "status": "complete"
+    },
+    {
+      "attention_bias": 1,
+      "dataset": "Arts_Crafts_and_Sewing",
+      "final_line": "Test After Training: (NDCG@5 : 0.0082    NDCG@10 : 0.0103    NDCG@20 : 0.0124    HR@5 : 0.0125    HR@10 : 0.0188    HR@20 : 0.0275    MRR@5 : 0.0068    MRR@10 : 0.0077    MRR@20 : 0.0083)",
+      "log_path": "ManCAR/logs/Arts_Crafts_and_Sewing/mancar_Arts_Crafts_and_Sewing_mancar_attn_mamba_20260625T061946Z_attention_bias_mamba.log",
+      "mamba": 1,
+      "metrics": {
+        "HR@10": 0.0188,
+        "HR@20": 0.0275,
+        "HR@5": 0.0125,
+        "MRR@10": 0.0077,
+        "MRR@20": 0.0083,
+        "MRR@5": 0.0068,
+        "NDCG@10": 0.0103,
+        "NDCG@20": 0.0124,
+        "NDCG@5": 0.0082
+      },
+      "missing_metrics": [],
+      "setting": "attention_bias_mamba",
+      "status": "complete"
+    },
+    {
+      "attention_bias": 0,
+      "dataset": "Musical_Instruments",
+      "final_line": "Test After Training: (NDCG@5 : 0.01    NDCG@10 : 0.0123    NDCG@20 : 0.0152    HR@5 : 0.0155    HR@10 : 0.0228    HR@20 : 0.0345    MRR@5 : 0.0082    MRR@10 : 0.0091    MRR@20 : 0.0099)",
+      "log_path": "ManCAR/logs/Musical_Instruments/mancar_Musical_Instruments_mancar_attn_mamba_20260625T061946Z_baseline.log",
+      "mamba": 0,
+      "metrics": {
+        "HR@10": 0.0228,
+        "HR@20": 0.0345,
+        "HR@5": 0.0155,
+        "MRR@10": 0.0091,
+        "MRR@20": 0.0099,
+        "MRR@5": 0.0082,
+        "NDCG@10": 0.0123,
+        "NDCG@20": 0.0152,
+        "NDCG@5": 0.01
+      },
+      "missing_metrics": [],
+      "setting": "baseline",
+      "status": "complete"
+    },
+    {
+      "attention_bias": 1,
+      "dataset": "Musical_Instruments",
+      "final_line": "Test After Training: (NDCG@5 : 0.0087    NDCG@10 : 0.0116    NDCG@20 : 0.0142    HR@5 : 0.0138    HR@10 : 0.023    HR@20 : 0.0331    MRR@5 : 0.007    MRR@10 : 0.0082    MRR@20 : 0.0089)",
+      "log_path": "ManCAR/logs/Musical_Instruments/mancar_Musical_Instruments_mancar_attn_mamba_20260625T061946Z_attention_bias.log",
+      "mamba": 0,
+      "metrics": {
+        "HR@10": 0.023,
+        "HR@20": 0.0331,
+        "HR@5": 0.0138,
+        "MRR@10": 0.0082,
+        "MRR@20": 0.0089,
+        "MRR@5": 0.007,
+        "NDCG@10": 0.0116,
+        "NDCG@20": 0.0142,
+        "NDCG@5": 0.0087
+      },
+      "missing_metrics": [],
+      "setting": "attention_bias",
+      "status": "complete"
+    },
+    {
+      "attention_bias": 0,
+      "dataset": "Musical_Instruments",
+      "final_line": "Test After Training: (NDCG@5 : 0.0095    NDCG@10 : 0.012    NDCG@20 : 0.0148    HR@5 : 0.0145    HR@10 : 0.0221    HR@20 : 0.0332    MRR@5 : 0.0079    MRR@10 : 0.0089    MRR@20 : 0.0097)",
+      "log_path": "ManCAR/logs/Musical_Instruments/mancar_Musical_Instruments_mancar_attn_mamba_20260625T061946Z_mamba.log",
+      "mamba": 1,
+      "metrics": {
+        "HR@10": 0.0221,
+        "HR@20": 0.0332,
+        "HR@5": 0.0145,
+        "MRR@10": 0.0089,
+        "MRR@20": 0.0097,
+        "MRR@5": 0.0079,
+        "NDCG@10": 0.012,
+        "NDCG@20": 0.0148,
+        "NDCG@5": 0.0095
+      },
+      "missing_metrics": [],
+      "setting": "mamba",
+      "status": "complete"
+    },
+    {
+      "attention_bias": 1,
+      "dataset": "Musical_Instruments",
+      "final_line": "Test After Training: (NDCG@5 : 0.0094    NDCG@10 : 0.012    NDCG@20 : 0.015    HR@5 : 0.014    HR@10 : 0.0223    HR@20 : 0.0338    MRR@5 : 0.0079    MRR@10 : 0.009    MRR@20 : 0.0098)",
+      "log_path": "ManCAR/logs/Musical_Instruments/mancar_Musical_Instruments_mancar_attn_mamba_20260625T061946Z_attention_bias_mamba.log",
+      "mamba": 1,
+      "metrics": {
+        "HR@10": 0.0223,
+        "HR@20": 0.0338,
+        "HR@5": 0.014,
+        "MRR@10": 0.009,
+        "MRR@20": 0.0098,
+        "MRR@5": 0.0079,
+        "NDCG@10": 0.012,
+        "NDCG@20": 0.015,
+        "NDCG@5": 0.0094
+      },
+      "missing_metrics": [],
+      "setting": "attention_bias_mamba",
+      "status": "complete"
+    },
+    {
+      "attention_bias": 0,
+      "dataset": "Toys_and_Games",
+      "final_line": "Test After Training: (NDCG@5 : 0.0086    NDCG@10 : 0.0107    NDCG@20 : 0.0127    HR@5 : 0.0131    HR@10 : 0.0194    HR@20 : 0.0273    MRR@5 : 0.0071    MRR@10 : 0.008    MRR@20 : 0.0085)",
+      "log_path": "ManCAR/logs/Toys_and_Games/mancar_Toys_and_Games_mancar_attn_mamba_20260625T061946Z_baseline.log",
+      "mamba": 0,
+      "metrics": {
+        "HR@10": 0.0194,
+        "HR@20": 0.0273,
+        "HR@5": 0.0131,
+        "MRR@10": 0.008,
+        "MRR@20": 0.0085,
+        "MRR@5": 0.0071,
+        "NDCG@10": 0.0107,
+        "NDCG@20": 0.0127,
+        "NDCG@5": 0.0086
+      },
+      "missing_metrics": [],
+      "setting": "baseline",
+      "status": "complete"
+    },
+    {
+      "attention_bias": 1,
+      "dataset": "Toys_and_Games",
+      "final_line": "Test After Training: (NDCG@5 : 0.0088    NDCG@10 : 0.0108    NDCG@20 : 0.0127    HR@5 : 0.0132    HR@10 : 0.0196    HR@20 : 0.0269    MRR@5 : 0.0073    MRR@10 : 0.0082    MRR@20 : 0.0087)",
+      "log_path": "ManCAR/logs/Toys_and_Games/mancar_Toys_and_Games_mancar_attn_mamba_20260625T061946Z_attention_bias.log",
+      "mamba": 0,
+      "metrics": {
+        "HR@10": 0.0196,
+        "HR@20": 0.0269,
+        "HR@5": 0.0132,
+        "MRR@10": 0.0082,
+        "MRR@20": 0.0087,
+        "MRR@5": 0.0073,
+        "NDCG@10": 0.0108,
+        "NDCG@20": 0.0127,
+        "NDCG@5": 0.0088
+      },
+      "missing_metrics": [],
+      "setting": "attention_bias",
+      "status": "complete"
+    },
+    {
+      "attention_bias": 0,
+      "dataset": "Toys_and_Games",
+      "final_line": "Test After Training: (NDCG@5 : 0.0092    NDCG@10 : 0.011    NDCG@20 : 0.0128    HR@5 : 0.0132    HR@10 : 0.0187    HR@20 : 0.0259    MRR@5 : 0.0079    MRR@10 : 0.0086    MRR@20 : 0.0091)",
+      "log_path": "ManCAR/logs/Toys_and_Games/mancar_Toys_and_Games_mancar_attn_mamba_20260625T061946Z_mamba.log",
+      "mamba": 1,
+      "metrics": {
+        "HR@10": 0.0187,
+        "HR@20": 0.0259,
+        "HR@5": 0.0132,
+        "MRR@10": 0.0086,
+        "MRR@20": 0.0091,
+        "MRR@5": 0.0079,
+        "NDCG@10": 0.011,
+        "NDCG@20": 0.0128,
+        "NDCG@5": 0.0092
+      },
+      "missing_metrics": [],
+      "setting": "mamba",
+      "status": "complete"
+    },
+    {
+      "attention_bias": 1,
+      "dataset": "Toys_and_Games",
+      "final_line": "Test After Training: (NDCG@5 : 0.0093    NDCG@10 : 0.0111    NDCG@20 : 0.013    HR@5 : 0.0132    HR@10 : 0.0187    HR@20 : 0.0262    MRR@5 : 0.008    MRR@10 : 0.0087    MRR@20 : 0.0093)",
+      "log_path": "ManCAR/logs/Toys_and_Games/mancar_Toys_and_Games_mancar_attn_mamba_20260625T061946Z_attention_bias_mamba.log",
+      "mamba": 1,
+      "metrics": {
+        "HR@10": 0.0187,
+        "HR@20": 0.0262,
+        "HR@5": 0.0132,
+        "MRR@10": 0.0087,
+        "MRR@20": 0.0093,
+        "MRR@5": 0.008,
+        "NDCG@10": 0.0111,
+        "NDCG@20": 0.013,
+        "NDCG@5": 0.0093
+      },
+      "missing_metrics": [],
+      "setting": "attention_bias_mamba",
+      "status": "complete"
+    },
+    {
+      "attention_bias": 0,
+      "dataset": "Grocery_and_Gourmet_Food",
+      "final_line": "Test After Training: (NDCG@5 : 0.0095    NDCG@10 : 0.0118    NDCG@20 : 0.0139    HR@5 : 0.0147    HR@10 : 0.0219    HR@20 : 0.03    MRR@5 : 0.0078    MRR@10 : 0.0087    MRR@20 : 0.0093)",
+      "log_path": "ManCAR/logs/Grocery_and_Gourmet_Food/mancar_Grocery_and_Gourmet_Food_mancar_attn_mamba_20260625T061946Z_baseline.log",
+      "mamba": 0,
+      "metrics": {
+        "HR@10": 0.0219,
+        "HR@20": 0.03,
+        "HR@5": 0.0147,
+        "MRR@10": 0.0087,
+        "MRR@20": 0.0093,
+        "MRR@5": 0.0078,
+        "NDCG@10": 0.0118,
+        "NDCG@20": 0.0139,
+        "NDCG@5": 0.0095
+      },
+      "missing_metrics": [],
+      "setting": "baseline",
+      "status": "complete"
+    },
+    {
+      "attention_bias": 1,
+      "dataset": "Grocery_and_Gourmet_Food",
+      "final_line": "Test After Training: (NDCG@5 : 0.0095    NDCG@10 : 0.0119    NDCG@20 : 0.014    HR@5 : 0.0146    HR@10 : 0.0218    HR@20 : 0.0304    MRR@5 : 0.0079    MRR@10 : 0.0088    MRR@20 : 0.0094)",
+      "log_path": "ManCAR/logs/Grocery_and_Gourmet_Food/mancar_Grocery_and_Gourmet_Food_mancar_attn_mamba_20260625T061946Z_attention_bias.log",
+      "mamba": 0,
+      "metrics": {
+        "HR@10": 0.0218,
+        "HR@20": 0.0304,
+        "HR@5": 0.0146,
+        "MRR@10": 0.0088,
+        "MRR@20": 0.0094,
+        "MRR@5": 0.0079,
+        "NDCG@10": 0.0119,
+        "NDCG@20": 0.014,
+        "NDCG@5": 0.0095
+      },
+      "missing_metrics": [],
+      "setting": "attention_bias",
+      "status": "complete"
+    },
+    {
+      "attention_bias": 0,
+      "dataset": "Grocery_and_Gourmet_Food",
+      "final_line": "Test After Training: (NDCG@5 : 0.0103    NDCG@10 : 0.0126    NDCG@20 : 0.0149    HR@5 : 0.0152    HR@10 : 0.0222    HR@20 : 0.0313    MRR@5 : 0.0087    MRR@10 : 0.0097    MRR@20 : 0.0103)",
+      "log_path": "ManCAR/logs/Grocery_and_Gourmet_Food/mancar_Grocery_and_Gourmet_Food_mancar_attn_mamba_20260625T061946Z_mamba.log",
+      "mamba": 1,
+      "metrics": {
+        "HR@10": 0.0222,
+        "HR@20": 0.0313,
+        "HR@5": 0.0152,
+        "MRR@10": 0.0097,
+        "MRR@20": 0.0103,
+        "MRR@5": 0.0087,
+        "NDCG@10": 0.0126,
+        "NDCG@20": 0.0149,
+        "NDCG@5": 0.0103
+      },
+      "missing_metrics": [],
+      "setting": "mamba",
+      "status": "complete"
+    },
+    {
+      "attention_bias": 1,
+      "dataset": "Grocery_and_Gourmet_Food",
+      "final_line": "Test After Training: (NDCG@5 : 0.0106    NDCG@10 : 0.0127    NDCG@20 : 0.015    HR@5 : 0.0156    HR@10 : 0.0221    HR@20 : 0.0314    MRR@5 : 0.0089    MRR@10 : 0.0098    MRR@20 : 0.0104)",
+      "log_path": "ManCAR/logs/Grocery_and_Gourmet_Food/mancar_Grocery_and_Gourmet_Food_mancar_attn_mamba_20260625T061946Z_attention_bias_mamba.log",
+      "mamba": 1,
+      "metrics": {
+        "HR@10": 0.0221,
+        "HR@20": 0.0314,
+        "HR@5": 0.0156,
+        "MRR@10": 0.0098,
+        "MRR@20": 0.0104,
+        "MRR@5": 0.0089,
+        "NDCG@10": 0.0127,
+        "NDCG@20": 0.015,
+        "NDCG@5": 0.0106
+      },
+      "missing_metrics": [],
+      "setting": "attention_bias_mamba",
+      "status": "complete"
+    }
+  ],
+  "run_tag": "mancar_attn_mamba_20260625T061946Z",
+  "settings": [
+    {
+      "attention_bias": 0,
+      "mamba": 0,
+      "setting": "baseline"
+    },
+    {
+      "attention_bias": 1,
+      "mamba": 0,
+      "setting": "attention_bias"
+    },
+    {
+      "attention_bias": 0,
+      "mamba": 1,
+      "setting": "mamba"
+    },
+    {
+      "attention_bias": 1,
+      "mamba": 1,
+      "setting": "attention_bias_mamba"
+    }
+  ]
+}
